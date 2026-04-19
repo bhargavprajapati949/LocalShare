@@ -62,10 +62,19 @@ function main(): void {
     // Advertise via mDNS/Bonjour so devices discover automatically
     if (config.mdnsEnabled) {
       const bonjour = new Bonjour();
+      
+      // Use custom domain name if provided, otherwise generate a sensible default
+      const domainName = config.customDomainName || `lan-${process.env.HOSTNAME || 'host'}.local`;
+      const serviceName = domainName.replace('.local', '');
+      
       const bonjourService = bonjour.publish({
-        name: 'LAN File Host',
+        name: serviceName,
         type: 'http',
         port: config.port,
+        txt: {
+          path: '/',
+          description: 'LAN File Host',
+        },
       });
 
       const shutdown = (): void => {
@@ -77,6 +86,8 @@ function main(): void {
 
       process.once('SIGINT', shutdown);
       process.once('SIGTERM', shutdown);
+      
+      console.log(`mDNS enabled - Access at: http://${domainName}:${config.port}`);
 
       console.log('mDNS: advertising LAN File Host on local network');
     }
