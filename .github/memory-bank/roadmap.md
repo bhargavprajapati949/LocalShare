@@ -18,13 +18,20 @@ v1
 - Session PIN
 - Multi-platform packaging quality
 
-## v2 - Security and Productivity
+## v2 - Collaboration and Access
+- Separate host admin UI and client access UI
+- Host admin controls for session, access, and transfer management
+- Directory download support (archive as ZIP)
+- Upload support for files and directories to host
+- Host-configured custom local domain name for LAN access
+- Local domain resolution so devices can open server via hostname instead of raw IP
+
+## v3 - Security and Productivity
 - Trusted devices
-- Upload flow
 - Read/write policies
 - Logs and session control
 
-## v3 - Power User
+## v4 - Power User
 - CLI mode
 - WebDAV mode
 - Extensibility and automation

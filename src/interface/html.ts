@@ -33,7 +33,23 @@ export function renderHomePage(): string {
       .qr-box img { width:120px; height:120px; display:block; border-radius:6px; }
       .qr-box .qr-label { font-size:11px; color:var(--muted); text-align:center; }
       .controls { display:flex; gap:8px; align-items:center; margin:0 0 14px; flex-wrap:wrap; }
+      .mode-toggle { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
+      .mode-toggle input { width:auto; margin:0; }
+      .host-row { display:grid; grid-template-columns:1fr auto; gap:10px; margin:0 0 10px; }
+      .host-label { display:block; margin:2px 0 6px; color:var(--muted); font-size:12px; }
       .browse-row { display:grid; grid-template-columns:minmax(140px,auto) 1fr auto; gap:10px; margin:0 0 10px; }
+      .root-label { border:1px solid var(--line); border-radius:10px; padding:9px 13px; background:#f8fbff; color:var(--muted); font-size:13px; }
+      .download-panel { margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+      .download-panel h3 { margin:0 0 8px; font-size:14px; }
+      .download-empty { color:var(--muted); font-size:13px; }
+      .download-item { border-top:1px solid var(--line); padding:8px 0; }
+      .download-item:first-child { border-top:none; padding-top:0; }
+      .download-top { display:flex; justify-content:space-between; gap:8px; align-items:center; font-size:13px; }
+      .download-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .download-status { color:var(--muted); font-size:12px; }
+      .download-meta { display:flex; justify-content:space-between; gap:8px; margin-top:4px; font-size:12px; color:var(--muted); }
+      .download-actions { display:flex; gap:8px; margin-top:6px; }
+      .download-actions button { padding:5px 8px; font-size:12px; }
       input,select,button { border:1px solid var(--line); border-radius:10px; padding:9px 13px; font-size:14px; font-family:inherit; color:var(--text); background:var(--surface); }
       button { background:var(--accent); border-color:var(--accent); color:#fff; cursor:pointer; white-space:nowrap; }
       button:hover { filter:brightness(0.93); }
@@ -91,22 +107,37 @@ export function renderHomePage(): string {
         <button id="startSharing" class="secondary" hidden>&#9654; Start Sharing</button>
         <button id="stopSharing" class="danger" hidden>&#9632; Stop Sharing</button>
         <button id="refreshStatus" class="secondary">&#8635; Refresh Status</button>
+        <label class="mode-toggle"><input id="downloadModeToggle" type="checkbox" /> Browser-managed download mode</label>
+      </div>
+      <div class="host-row" id="hostRootRow" hidden>
+        <label for="shareRootPath" class="host-label" style="grid-column:1/-1">Shared directory path</label>
+        <input id="shareRootPath" type="text" placeholder="Absolute directory path to share" autocomplete="off" />
+        <button id="pickShareRoot" class="secondary">Choose Directory</button>
       </div>
       <div class="browse-row">
         <select id="root"></select>
+        <div id="rootLabel" class="root-label" hidden></div>
         <input id="pinInput" type="password" inputmode="numeric" placeholder="Session PIN (if required)" autocomplete="off" />
         <button id="refresh">Browse</button>
       </div>
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="list" id="list"></div>
+      <section class="download-panel">
+        <h3>Downloads</h3>
+        <div id="downloadItems" class="download-empty">No downloads yet.</div>
+      </section>
     </section>
     <script>
-      const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[]};
+      const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[],downloadMode:localStorage.getItem("lan_download_mode")==="browser"?"browser":"managed",downloads:new Map()};
       const listEl=document.getElementById("list"),rootEl=document.getElementById("root"),breadcrumbEl=document.getElementById("breadcrumb"),
             pinInputEl=document.getElementById("pinInput"),refreshEl=document.getElementById("refresh"),
             warningEl=document.getElementById("warning"),sharingStateEl=document.getElementById("sharingState"),
             hostIpsEl=document.getElementById("hostIps"),refreshStatusEl=document.getElementById("refreshStatus"),
             startSharingEl=document.getElementById("startSharing"),stopSharingEl=document.getElementById("stopSharing"),
+        downloadModeToggleEl=document.getElementById("downloadModeToggle"),downloadItemsEl=document.getElementById("downloadItems"),
+            hostRootRowEl=document.getElementById("hostRootRow"),shareRootPathEl=document.getElementById("shareRootPath"),
+            pickShareRootEl=document.getElementById("pickShareRoot"),
+            rootLabelEl=document.getElementById("rootLabel"),
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
             pinOverlayEl=document.getElementById("pinOverlay"),pinOverlayInputEl=document.getElementById("pinOverlayInput"),
             pinOverlayErrorEl=document.getElementById("pinOverlayError"),pinOverlaySubmitEl=document.getElementById("pinOverlaySubmit");
@@ -115,6 +146,36 @@ export function renderHomePage(): string {
       const PIN_KEY="lan_file_host_pin",storedPin=()=>sessionStorage.getItem(PIN_KEY)||"",
             savePin=(p)=>p?sessionStorage.setItem(PIN_KEY,p):sessionStorage.removeItem(PIN_KEY),
             clearPin=()=>{sessionStorage.removeItem(PIN_KEY);state.pin="";pinInputEl.value="";};
+      function formatSpeed(v){if(!v||v<=0)return"\u2014";return formatBytes(v)+"/s";}
+      function setDownloadMode(mode){
+        state.downloadMode=mode;
+        localStorage.setItem("lan_download_mode",mode);
+        downloadModeToggleEl.checked=mode==="browser";
+      }
+      function upsertDownload(entry){
+        state.downloads.set(entry.relPath,entry);
+        renderDownloadPanel();
+      }
+      function renderDownloadPanel(){
+        const items=Array.from(state.downloads.values());
+        if(!items.length){downloadItemsEl.className="download-empty";downloadItemsEl.innerHTML="No downloads yet.";return;}
+        downloadItemsEl.className="";
+        downloadItemsEl.innerHTML="";
+        items.forEach((d)=>{
+          const row=document.createElement("div");row.className="download-item";
+          const pct=d.total>0?Math.round((d.received/d.total)*100):0;
+          const doneText=d.total>0?formatBytes(d.received)+" / "+formatBytes(d.total):formatBytes(d.received)+" / unknown";
+          const statusText=d.status==="error"&&d.error?d.status+": "+d.error:d.status;
+          const actions=(d.status==="error"||d.status==="paused")?'<button data-action="resume" data-path="'+d.relPath+'">Resume</button>':'';
+          row.innerHTML='<div class="download-top"><span class="download-name">'+d.filename+'</span><span class="download-status">'+statusText+'</span></div>'+
+            '<div class="progress-bar-wrap"><div class="progress-bar" style="width:'+(d.status==="completed"?100:pct)+'%"></div></div>'+
+            '<div class="download-meta"><span>'+doneText+'</span><span>'+formatSpeed(d.speed)+'</span></div>'+
+            '<div class="download-actions">'+actions+'</div>';
+          const resumeBtn=row.querySelector('button[data-action="resume"]');
+          if(resumeBtn)resumeBtn.addEventListener("click",()=>resumeManagedDownload(d.relPath));
+          downloadItemsEl.appendChild(row);
+        });
+      }
       function showPinGate(){pinOverlayEl.classList.remove("hidden");pinOverlayInputEl.value="";pinOverlayErrorEl.textContent="";pinOverlayInputEl.focus();}
       function hidePinGate(){pinOverlayEl.classList.add("hidden");}
       async function submitPinOverlay(){
@@ -132,17 +193,34 @@ export function renderHomePage(): string {
       function renderHostSummary(s){
         const started=s.lastStartedAt?new Date(s.lastStartedAt).toLocaleTimeString():"\u2014";
         sharingStateEl.textContent=s.sharingActive?"Active (last started: "+started+")":"Stopped by host";
-        hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\n"):"No LAN IPv4 address detected";
+        hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No LAN IPv4 address detected";
         state.sharingActive=Boolean(s.sharingActive);state.canControlHost=Boolean(s.canControlHost);
         state.requiresPin=Boolean(s.requiresPin);state.lanUrls=Array.isArray(s.lanUrls)?s.lanUrls:[];
-        startSharingEl.hidden=!state.canControlHost;stopSharingEl.hidden=!state.canControlHost;
+        startSharingEl.hidden=!state.canControlHost||state.sharingActive;
+        stopSharingEl.hidden=!state.canControlHost||!state.sharingActive;
+        hostRootRowEl.hidden=!state.canControlHost;
       }
       async function loadQr(){try{const r=await fetch("/api/qr");if(!r.ok)return;const{dataUrl}=await r.json();qrImgEl.src=dataUrl;qrBoxEl.style.visibility="visible";}catch{}}
       async function loadStatus(){
         const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status error");
-        const s=await r.json();state.roots=s.roots;state.root=state.root||(s.roots[0]&&s.roots[0].id)||"";
+        const s=await r.json();state.roots=s.roots;
+        const hasCurrentRoot=s.roots.some((root)=>root.id===state.root);
+        state.root=hasCurrentRoot?state.root:((s.roots[0]&&s.roots[0].id)||"");
         renderWarning(s);renderHostSummary(s);rootEl.innerHTML="";
         s.roots.forEach((root)=>{const o=document.createElement("option");o.value=root.id;o.textContent=root.name;if(root.id===state.root)o.selected=true;rootEl.appendChild(o);});
+        const activeRoot=s.roots.find((root)=>root.id===state.root);
+        if(activeRoot&&state.canControlHost)shareRootPathEl.value=activeRoot.absPath;
+        if(s.roots.length<=1){
+          rootEl.hidden=true;
+          rootEl.disabled=true;
+          rootLabelEl.hidden=false;
+          rootLabelEl.textContent=activeRoot?"Shared directory: "+activeRoot.name:"Shared directory";
+        }else{
+          rootEl.hidden=false;
+          rootEl.disabled=false;
+          rootLabelEl.hidden=true;
+          rootLabelEl.textContent="";
+        }
       }
       function renderBreadcrumb(rootName,relPath){
         breadcrumbEl.innerHTML="";
@@ -151,21 +229,101 @@ export function renderHomePage(): string {
         addBtn(rootName,()=>{state.path="";loadDirectory();});
         if(relPath)relPath.split("/").forEach((part,i,arr)=>{addSpan(" / ");const acc=arr.slice(0,i+1).join("/");i===arr.length-1?addSpan(part):addBtn(part,()=>{state.path=acc;loadDirectory();});});
       }
-      async function downloadFile(relPath){
-        const url=apiUrl("/api/download",{root:state.root,path:relPath,pin:state.pin});
+      function markButtonProgress(relPath,text,pct){
         const wrap=document.querySelector('[data-dl-path="'+CSS.escape(relPath)+'"]');
         const btn=wrap&&wrap.querySelector(".dl-btn"),bar=wrap&&wrap.querySelector(".progress-bar");
-        if(btn){btn.disabled=true;btn.textContent="\u2193 0%";}
+        if(btn)btn.textContent=text;
+        if(bar&&typeof pct==="number")bar.style.width=pct+"%";
+      }
+      function setButtonBusy(relPath,busy){
+        const wrap=document.querySelector('[data-dl-path="'+CSS.escape(relPath)+'"]');
+        const btn=wrap&&wrap.querySelector(".dl-btn");
+        if(btn)btn.disabled=busy;
+      }
+      function triggerBrowserManagedDownload(relPath){
+        const url=apiUrl("/api/download",{root:state.root,path:relPath,pin:state.pin});
+        const a=document.createElement("a");
+        a.href=url.toString();
+        a.click();
+        upsertDownload({relPath,filename:relPath.split("/").pop()||relPath,received:0,total:0,status:"delegated-to-browser",error:"",speed:0,chunks:[]});
+      }
+      function parseFilename(resp,relPath){
+        const disp=resp.headers.get("Content-Disposition")||"";
+        const nm=disp.match(/filename="([^"]+)"/);
+        return nm?decodeURIComponent(nm[1]):relPath.split("/").pop()||"download";
+      }
+      function parseTotalSize(resp,receivedFallback){
+        const cr=resp.headers.get("Content-Range")||"";
+        const m=cr.match(/\\\/(\\d+)$/);
+        if(m)return Number(m[1])||0;
+        const cl=Number(resp.headers.get("Content-Length")||0);
+        return cl>0?cl+receivedFallback:0;
+      }
+      async function streamManagedDownload(download){
+        setButtonBusy(download.relPath,true);
+        const t0=Date.now();
         try{
-          const resp=await fetch(url);
-          if(resp.status===401){clearPin();showPinGate();if(btn){btn.disabled=false;btn.textContent="\u2193 Download";}return;}
-          if(!resp.ok){alert("Download failed: "+resp.statusText);if(btn){btn.disabled=false;btn.textContent="\u2193 Download";}return;}
-          const contentLength=Number(resp.headers.get("Content-Length")||0),reader=resp.body.getReader(),chunks=[];let received=0;
-          while(true){const{done,value}=await reader.read();if(done)break;chunks.push(value);received+=value.length;
-            if(contentLength>0&&btn&&bar){const pct=Math.round(received/contentLength*100);btn.textContent="\u2193 "+pct+"%";bar.style.width=pct+"%";}else if(btn)btn.textContent="\u2193 \u2026";}
-          const disp=resp.headers.get("Content-Disposition")||"",nm=disp.match(/filename="([^"]+)"/),filename=nm?decodeURIComponent(nm[1]):relPath.split("/").pop()||"download";
-          const blob=new Blob(chunks,{type:resp.headers.get("Content-Type")||"application/octet-stream"}),obj=URL.createObjectURL(blob),a=document.createElement("a");a.href=obj;a.download=filename;a.click();URL.revokeObjectURL(obj);
-        }finally{if(btn){btn.disabled=false;btn.textContent="\u2193 Download";}if(bar)bar.style.width="0%";}
+          download.status="downloading";download.error="";upsertDownload(download);
+          while(download.total===0||download.received<download.total){
+            const url=apiUrl("/api/download",{root:state.root,path:download.relPath,pin:state.pin});
+            const headers={};
+            if(download.received>0)headers.Range="bytes="+download.received+"-";
+            const controller=new AbortController();
+            download.controller=controller;
+            const resp=await fetch(url,{headers,signal:controller.signal});
+            if(resp.status===401){clearPin();showPinGate();download.status="error";download.error="PIN required";upsertDownload(download);break;}
+            if(!(resp.ok||resp.status===206)){download.status="error";download.error=resp.status+" "+resp.statusText;upsertDownload(download);break;}
+            if(download.total===0)download.total=parseTotalSize(resp,download.received);
+            if(!download.filename)download.filename=parseFilename(resp,download.relPath);
+            const reader=resp.body.getReader();
+            while(true){
+              const {done,value}=await reader.read();
+              if(done)break;
+              download.chunks.push(value);
+              download.received+=value.length;
+              const elapsed=Math.max(1,(Date.now()-t0)/1000);
+              download.speed=Math.round(download.received/elapsed);
+              const pct=download.total>0?Math.round((download.received/download.total)*100):0;
+              markButtonProgress(download.relPath,"\u2193 "+(download.total>0?pct+"%":"\u2026"),pct);
+              upsertDownload(download);
+            }
+            if(download.total===0)break;
+            if(download.received>=download.total)break;
+          }
+          if(download.status==="downloading"&&(download.total===0||download.received>=download.total)){
+            const blob=new Blob(download.chunks,{type:"application/octet-stream"});
+            const obj=URL.createObjectURL(blob);
+            const a=document.createElement("a");
+            a.href=obj;a.download=download.filename||"download";a.click();
+            URL.revokeObjectURL(obj);
+            download.status="completed";
+            upsertDownload(download);
+            markButtonProgress(download.relPath,"\u2193 Download",0);
+          }
+        }catch(err){
+          download.status="paused";
+          download.error=err&&err.name==="AbortError"?"Canceled":(err&&err.message?err.message:"Connection lost");
+          upsertDownload(download);
+        }finally{
+          download.controller=null;
+          setButtonBusy(download.relPath,false);
+          if(download.status!=="downloading")markButtonProgress(download.relPath,"\u2193 Download",0);
+        }
+      }
+      async function startManagedDownload(relPath){
+        const existing=state.downloads.get(relPath);
+        const download=existing&&existing.status!=="completed"?existing:{relPath,filename:relPath.split("/").pop()||relPath,received:0,total:0,status:"queued",error:"",speed:0,chunks:[]};
+        upsertDownload(download);
+        await streamManagedDownload(download);
+      }
+      async function resumeManagedDownload(relPath){
+        const d=state.downloads.get(relPath);
+        if(!d)return;
+        await streamManagedDownload(d);
+      }
+      async function downloadFile(relPath){
+        if(state.downloadMode==="browser"){triggerBrowserManagedDownload(relPath);return;}
+        await startManagedDownload(relPath);
       }
       async function loadDirectory(){
         if(!state.sharingActive){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Sharing is stopped. Start sharing to browse.</span></div>';breadcrumbEl.innerHTML="";return;}
@@ -185,7 +343,7 @@ export function renderHomePage(): string {
         }
         payload.entries.forEach((entry)=>{
           const row=document.createElement("div");row.className="item";
-          const nameCell=entry.isDirectory?'<div class="name"><button>\uD83D\uDCC1 '+entry.name+'/</button></div>':'<div class="name"><span>\uD83D\uDCC4 '+entry.name+'</span></div>';
+          const nameCell=entry.isDirectory?'<div class="name"><button>&#128193; '+entry.name+'/</button></div>':'<div class="name"><span>&#128196; '+entry.name+'</span></div>';
           const sizeCell='<div class="muted hide-sm">'+(entry.isDirectory?"\u2014":formatBytes(entry.size))+'</div>';
           const dateCell='<div class="muted hide-sm">'+new Date(entry.modifiedAt).toLocaleString()+'</div>';
           const actionCell=entry.isDirectory?'<div></div>':'<div data-dl-path="'+entry.relPath+'">'+'<button class="dl-btn">\u2193 Download</button>'+'<div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>';
@@ -201,12 +359,33 @@ export function renderHomePage(): string {
         if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Host control failed");return;}
         await loadStatus();await loadDirectory();
       }
+      async function applySharedDirectory(){
+        const absPath=shareRootPathEl.value.trim();
+        if(!absPath){alert("Enter an absolute directory path");return;}
+        const r=await fetch(apiUrl("/api/host/share-root"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({absPath})});
+        if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed to update shared directory");return;}
+        state.path="";
+        await loadStatus();
+        await loadDirectory();
+      }
+      async function pickSharedDirectory(){
+        const r=await fetch(apiUrl("/api/host/pick-share-root"),{method:"POST"});
+        if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Directory picker failed");return;}
+        const payload=await r.json();
+        if(payload&&payload.absPath)shareRootPathEl.value=payload.absPath;
+        state.path="";
+        await loadStatus();
+        await loadDirectory();
+      }
       rootEl.addEventListener("change",()=>{state.root=rootEl.value;state.path="";loadDirectory();});
       refreshEl.addEventListener("click",()=>{state.path="";loadDirectory();});
       refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadDirectory();});
       startSharingEl.addEventListener("click",()=>sendHostControl("start"));
       stopSharingEl.addEventListener("click",()=>sendHostControl("stop"));
-      (async()=>{await loadStatus();loadQr();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();
+      pickShareRootEl.addEventListener("click",pickSharedDirectory);
+      shareRootPathEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")applySharedDirectory();});
+      downloadModeToggleEl.addEventListener("change",()=>setDownloadMode(downloadModeToggleEl.checked?"browser":"managed"));
+      (async()=>{setDownloadMode(state.downloadMode);renderDownloadPanel();await loadStatus();loadQr();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();
     </script>
   </body>
 </html>`;

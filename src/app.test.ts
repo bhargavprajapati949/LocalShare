@@ -94,3 +94,92 @@ test('list route blocks while host sharing is stopped and resumes after start', 
     );
   });
 });
+
+test('host can update shared root at runtime and clients see new directory', async () => {
+  await withTempRoot(async (rootA) => {
+    const rootB = await fsp.mkdtemp(path.join(os.tmpdir(), 'lan-file-host-app-test-alt-'));
+
+    try {
+      await fsp.writeFile(path.join(rootA, 'only-in-a.txt'), 'alpha');
+      await fsp.writeFile(path.join(rootB, 'only-in-b.txt'), 'beta');
+
+      const config: AppConfig = {
+        host: '0.0.0.0',
+        port: 8080,
+        roots: [
+          {
+            id: '0',
+            name: 'root-a',
+            absPath: rootA,
+          },
+        ],
+        mdnsEnabled: false,
+      };
+
+      const sessionState = new HostSessionState();
+      const fileSystem = new FileSystemAdapter(config.roots);
+      const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+      const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+      const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase);
+
+      const before = await request(app).get('/api/list?root=0&path=').expect(200);
+      assert.equal(
+        before.body.entries.some((entry: { name: string }) => entry.name === 'only-in-a.txt'),
+        true,
+      );
+
+      await request(app)
+        .post('/api/host/share-root')
+        .send({ absPath: rootB })
+        .expect(200);
+
+      const after = await request(app).get('/api/list?root=0&path=').expect(200);
+      assert.equal(
+        after.body.entries.some((entry: { name: string }) => entry.name === 'only-in-a.txt'),
+        false,
+      );
+      assert.equal(
+        after.body.entries.some((entry: { name: string }) => entry.name === 'only-in-b.txt'),
+        true,
+      );
+    } finally {
+      await fsp.rm(rootB, { recursive: true, force: true });
+    }
+  });
+});
+
+test('download endpoint supports HTTP range requests for resumable downloads', async () => {
+  await withTempRoot(async (rootPath) => {
+    const filePath = path.join(rootPath, 'sample.txt');
+    await fsp.writeFile(filePath, 'abcdef');
+
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [
+        {
+          id: '0',
+          name: 'tmp',
+          absPath: rootPath,
+        },
+      ],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase);
+
+    const response = await request(app)
+      .get('/api/download?root=0&path=sample.txt')
+      .set('Range', 'bytes=2-4')
+      .expect(206);
+
+    assert.equal(response.headers['accept-ranges'], 'bytes');
+    assert.equal(response.headers['content-range'], 'bytes 2-4/6');
+    assert.equal(response.text, 'cde');
+  });
+});

@@ -3,3 +3,5 @@ dist/
 .env
 .DS_Store
 write_html.js
+
+.playwright-mcp/
