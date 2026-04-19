@@ -15,7 +15,7 @@ import cors from 'cors';
 import type { AppConfig } from '../infrastructure/config';
 import { getLanIPv4Candidates } from '../infrastructure/config';
 import { generateQrDataUrl } from '../infrastructure/qrService';
-import { renderHomePage } from '../interface/html';
+import { renderHomePage, renderClientUI, renderAdminUI } from '../interface/html';
 import { isLoopbackAddress } from '../domain/models/hostSession';
 import type { FileSystemPort, HostSessionPort } from '../domain/ports';
 import type { ListFilesUseCase } from './useCases/listFiles';
@@ -124,10 +124,23 @@ export function createApp(
   // ============ Routes ============
 
   /**
-   * GET / - Homepage with HTML UI
+   * GET / - Client UI (file browsing and downloads)
    */
   app.get('/', (_req, res) => {
-    res.type('html').send(renderHomePage());
+    res.type('html').send(renderClientUI());
+  });
+
+  /**
+   * GET /admin - Admin UI (host controls, localhost only)
+   */
+  app.get('/admin', (req, res) => {
+    if (!isLoopbackAddress(req.socket.remoteAddress)) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Admin panel is only accessible from localhost',
+      });
+      return;
+    }
+    res.type('html').send(renderAdminUI());
   });
 
   /**

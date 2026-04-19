@@ -390,3 +390,107 @@ export function renderHomePage(): string {
   </body>
 </html>`;
 }
+
+/**
+ * Render client UI (file browsing and downloads, no admin controls)
+ * @returns HTML document as string
+ */
+export function renderClientUI(): string {
+  // Same as renderHomePage - client-only view
+  return renderHomePage();
+}
+
+/**
+ * Render admin UI (host controls, localhost only)
+ * @returns HTML document as string
+ */
+export function renderAdminUI(): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LAN File Host - Admin</title>
+    <style>
+      :root { color-scheme:light; --bg:#f5f7fb; --surface:#ffffff; --text:#152132; --muted:#607086; --accent:#1f6feb; --line:#dae2ee; --danger:#be2d2d; --success:#1f5f28; }
+      * { box-sizing:border-box; }
+      body { margin:0; padding:24px; font-family:"Segoe UI","Noto Sans",sans-serif; background:radial-gradient(circle at top right,#dbe9ff,var(--bg) 36%); color:var(--text); min-height:100vh; }
+      .card { max-width:960px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:24px; box-shadow:0 10px 30px rgba(20,44,88,0.08); }
+      h1 { margin:0 0 4px; font-size:22px; }
+      .subtitle { margin:0 0 16px; color:var(--muted); font-size:14px; }
+      .banner { border:1px solid #ffd59c; background:#fff7ea; color:#8c4f00; border-radius:10px; padding:10px 14px; margin:0 0 16px; font-size:13px; }
+      .banner.safe { border-color:#bfe6c2; background:#ecfff0; color:var(--success); }
+      .status-grid { display:grid; grid-template-columns:1fr 1fr auto; gap:12px; margin-bottom:14px; align-items:start; }
+      .status-box { border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+      .status-box strong { display:block; margin-bottom:4px; font-size:13px; }
+      .status-box p { margin:0; color:var(--muted); font-size:13px; }
+      .qr-box { border:1px solid var(--line); border-radius:10px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:6px; }
+      .qr-box img { width:120px; height:120px; display:block; border-radius:6px; }
+      .qr-box .qr-label { font-size:11px; color:var(--muted); text-align:center; }
+      .controls { display:flex; gap:8px; align-items:center; margin:0 0 14px; flex-wrap:wrap; }
+      .host-row { display:grid; grid-template-columns:1fr auto; gap:10px; margin:0 0 10px; }
+      .host-label { display:block; margin:2px 0 6px; color:var(--muted); font-size:12px; }
+      input,select,button { border:1px solid var(--line); border-radius:10px; padding:9px 13px; font-size:14px; font-family:inherit; color:var(--text); background:var(--surface); }
+      button { background:var(--accent); border-color:var(--accent); color:#fff; cursor:pointer; white-space:nowrap; }
+      button:hover { filter:brightness(0.93); }
+      button.secondary { background:var(--surface); color:var(--text); border-color:var(--line); }
+      button.danger { background:var(--danger); border-color:var(--danger); }
+      @media (max-width:760px) { body{padding:10px;} .card{padding:16px;} .status-grid{grid-template-columns:1fr 1fr;} .qr-box{display:none;} }
+    </style>
+  </head>
+  <body>
+    <section class="card">
+      <h1>LAN File Host</h1>
+      <p class="subtitle">Host control panel. Start/stop sharing and manage shared directories.</p>
+      <div id="warning" class="banner">Loading…</div>
+      <div class="status-grid">
+        <div class="status-box"><strong>Sharing Status</strong><p id="sharingState">—</p></div>
+        <div class="status-box"><strong>Host IPs (LAN)</strong><p id="hostIps" class="mono">—</p></div>
+        <div class="qr-box" id="qrBox" style="visibility:hidden">
+          <img id="qrImg" src="" alt="QR code" />
+          <div class="qr-label">Share link</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="startSharing" class="secondary" hidden>▶ Start Sharing</button>
+        <button id="stopSharing" class="danger" hidden>■ Stop Sharing</button>
+        <button id="refreshStatus" class="secondary">⟲ Refresh Status</button>
+      </div>
+      <div class="host-row">
+        <label for="shareRootPath" class="host-label" style="grid-column:1/-1">Shared directory path</label>
+        <input id="shareRootPath" type="text" placeholder="Absolute directory path to share" autocomplete="off" />
+        <button id="pickShareRoot" class="secondary">Choose Directory</button>
+      </div>
+      <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+        <h2 style="margin:0 0 12px;font-size:16px;">Client Access</h2>
+        <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Open the client UI below to access files from any device on the LAN.</p>
+        <button id="openClientUI" class="secondary">Open Client UI</button>
+      </div>
+    </section>
+    <script>
+      const state={sharingActive:true};
+      const sharingStateEl=document.getElementById("sharingState"),hostIpsEl=document.getElementById("hostIps"),
+            refreshStatusEl=document.getElementById("refreshStatus"),startSharingEl=document.getElementById("startSharing"),
+            stopSharingEl=document.getElementById("stopSharing"),shareRootPathEl=document.getElementById("shareRootPath"),
+            pickShareRootEl=document.getElementById("pickShareRoot"),warningEl=document.getElementById("warning"),
+            qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
+            openClientUIEl=document.getElementById("openClientUI");
+      function apiUrl(ep,p={}){const u=new URL(ep,window.location.origin);for(const[k,v]of Object.entries(p))if(v!=null&&v!=="")u.searchParams.set(k,String(v));return u;}
+      function renderWarning(s){warningEl.className=s.securityMode==="open-local-network"?"banner":"banner safe";warningEl.textContent=s.securityMode==="open-local-network"?"⚠ PIN is disabled":"✓ PIN is active";}
+      function renderHostSummary(s){const started=s.lastStartedAt?new Date(s.lastStartedAt).toLocaleTimeString():"—";sharingStateEl.textContent=s.sharingActive?"Active (started "+started+")":"Stopped";hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No IPv4 detected";state.sharingActive=Boolean(s.sharingActive);startSharingEl.hidden=state.sharingActive;stopSharingEl.hidden=!state.sharingActive;}
+      async function loadQr(){try{const r=await fetch("/api/qr");if(!r.ok)return;const{dataUrl}=await r.json();qrImgEl.src=dataUrl;qrBoxEl.style.visibility="visible";}catch{}}
+      async function loadStatus(){const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status failed");const s=await r.json();renderWarning(s);renderHostSummary(s);if(s.roots&&s.roots[0])shareRootPathEl.value=s.roots[0].absPath;}
+      async function sendHostControl(action){const r=await fetch(apiUrl("/api/host/"+action),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
+      async function applySharedDirectory(){const absPath=shareRootPathEl.value.trim();if(!absPath){alert("Enter a path");return;}const r=await fetch(apiUrl("/api/host/share-root"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({absPath})});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
+      async function pickSharedDirectory(){const r=await fetch(apiUrl("/api/host/pick-share-root"),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}const payload=await r.json();if(payload&&payload.absPath)shareRootPathEl.value=payload.absPath;await loadStatus();}
+      startSharingEl.addEventListener("click",()=>sendHostControl("start"));
+      stopSharingEl.addEventListener("click",()=>sendHostControl("stop"));
+      pickShareRootEl.addEventListener("click",pickSharedDirectory);
+      shareRootPathEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")applySharedDirectory();});
+      refreshStatusEl.addEventListener("click",async()=>loadStatus());
+      openClientUIEl.addEventListener("click",()=>window.location.href="/");
+      (async()=>{await loadStatus();loadQr();})();
+    </script>
+  </body>
+</html>`;
+}
