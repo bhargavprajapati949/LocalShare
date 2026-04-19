@@ -247,6 +247,14 @@ export function renderHomePage(): string {
         a.click();
         upsertDownload({relPath,filename:relPath.split("/").pop()||relPath,received:0,total:0,status:"delegated-to-browser",error:"",speed:0,chunks:[]});
       }
+      function triggerBrowserManagedDownloadDirectory(relPath){
+        const url=apiUrl("/api/download-directory",{root:state.root,path:relPath,pin:state.pin});
+        const a=document.createElement("a");
+        a.href=url.toString();
+        a.click();
+        const dirName=relPath.split("/").pop()||relPath||"archive";
+        upsertDownload({relPath,filename:dirName+".zip",received:0,total:0,status:"delegated-to-browser",error:"",speed:0,chunks:[]});
+      }
       function parseFilename(resp,relPath){
         const disp=resp.headers.get("Content-Disposition")||"";
         const nm=disp.match(/filename="([^"]+)"/);
@@ -316,6 +324,53 @@ export function renderHomePage(): string {
         upsertDownload(download);
         await streamManagedDownload(download);
       }
+      async function startManagedDownloadDirectory(relPath){
+        const dirName=relPath.split("/").pop()||relPath||"archive";
+        const download={relPath,filename:dirName+".zip",received:0,total:0,status:"queued",error:"",speed:0,chunks:[]};
+        upsertDownload(download);
+        await streamManagedDownloadDirectory(download);
+      }
+      async function streamManagedDownloadDirectory(download){
+        setButtonBusy(download.relPath,true);
+        const t0=Date.now();
+        try{
+          download.status="downloading";download.error="";upsertDownload(download);
+          const url=apiUrl("/api/download-directory",{root:state.root,path:download.relPath,pin:state.pin});
+          const resp=await fetch(url);
+          if(resp.status===401){clearPin();showPinGate();download.status="error";download.error="PIN required";upsertDownload(download);return;}
+          if(!resp.ok){download.status="error";download.error=resp.status+" "+resp.statusText;upsertDownload(download);return;}
+          download.total=Number(resp.headers.get("Content-Length")||0);
+          const reader=resp.body.getReader();
+          while(true){
+            const {done,value}=await reader.read();
+            if(done)break;
+            download.chunks.push(value);
+            download.received+=value.length;
+            const elapsed=Math.max(1,(Date.now()-t0)/1000);
+            download.speed=Math.round(download.received/elapsed);
+            const pct=download.total>0?Math.round((download.received/download.total)*100):0;
+            markButtonProgress(download.relPath,"\u2193 "+(download.total>0?pct+"%":"\u2026"),pct);
+            upsertDownload(download);
+          }
+          if(download.status==="downloading"&&download.received>0){
+            const blob=new Blob(download.chunks,{type:"application/zip"});
+            const obj=URL.createObjectURL(blob);
+            const a=document.createElement("a");
+            a.href=obj;a.download=download.filename||"archive.zip";a.click();
+            URL.revokeObjectURL(obj);
+            download.status="completed";
+            upsertDownload(download);
+            markButtonProgress(download.relPath,"\u2193 ZIP",0);
+          }
+        }catch(err){
+          download.status="paused";
+          download.error=err&&err.name==="AbortError"?"Canceled":(err&&err.message?err.message:"Connection lost");
+          upsertDownload(download);
+        }finally{
+          setButtonBusy(download.relPath,false);
+          if(download.status!=="downloading")markButtonProgress(download.relPath,"\u2193 ZIP",0);
+        }
+      }
       async function resumeManagedDownload(relPath){
         const d=state.downloads.get(relPath);
         if(!d)return;
@@ -324,6 +379,10 @@ export function renderHomePage(): string {
       async function downloadFile(relPath){
         if(state.downloadMode==="browser"){triggerBrowserManagedDownload(relPath);return;}
         await startManagedDownload(relPath);
+      }
+      async function downloadDirectory(relPath){
+        if(state.downloadMode==="browser"){triggerBrowserManagedDownloadDirectory(relPath);return;}
+        await startManagedDownloadDirectory(relPath);
       }
       async function loadDirectory(){
         if(!state.sharingActive){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Sharing is stopped. Start sharing to browse.</span></div>';breadcrumbEl.innerHTML="";return;}
@@ -346,9 +405,9 @@ export function renderHomePage(): string {
           const nameCell=entry.isDirectory?'<div class="name"><button>&#128193; '+entry.name+'/</button></div>':'<div class="name"><span>&#128196; '+entry.name+'</span></div>';
           const sizeCell='<div class="muted hide-sm">'+(entry.isDirectory?"\u2014":formatBytes(entry.size))+'</div>';
           const dateCell='<div class="muted hide-sm">'+new Date(entry.modifiedAt).toLocaleString()+'</div>';
-          const actionCell=entry.isDirectory?'<div></div>':'<div data-dl-path="'+entry.relPath+'">'+'<button class="dl-btn">\u2193 Download</button>'+'<div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>';
+          const actionCell=entry.isDirectory?'<div data-dl-path="'+entry.relPath+'"><button class="dl-btn">\u2193 ZIP</button><div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>':'<div data-dl-path="'+entry.relPath+'">'+'<button class="dl-btn">\u2193 Download</button>'+'<div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>';
           row.innerHTML=nameCell+sizeCell+dateCell+actionCell;
-          if(entry.isDirectory)row.querySelector("button").addEventListener("click",()=>{state.path=entry.relPath;loadDirectory();});
+          if(entry.isDirectory){row.querySelector("button").addEventListener("click",()=>{state.path=entry.relPath;loadDirectory();});row.querySelector(".dl-btn").addEventListener("click",()=>downloadDirectory(entry.relPath));}
           else row.querySelector(".dl-btn").addEventListener("click",()=>downloadFile(entry.relPath));
           listEl.appendChild(row);
         });

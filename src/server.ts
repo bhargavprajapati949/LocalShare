@@ -11,6 +11,7 @@ import { FileSystemAdapter } from './infrastructure/fileSystemAdapter';
 import { HostSessionState } from './domain/models/hostSession';
 import { ListFilesUseCase } from './application/useCases/listFiles';
 import { DownloadFileUseCase } from './application/useCases/downloadFile';
+import { DownloadDirectoryUseCase } from './application/useCases/downloadDirectory';
 import { createApp } from './application/appFactory';
 
 /**
@@ -29,9 +30,10 @@ function main(): void {
   // Create application use cases (injected with ports)
   const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
   const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+  const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
 
   // Create Express app (injected with all dependencies)
-  const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase);
+  const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase);
 
   // Start server
   const server = app.listen(config.port, config.host, () => {

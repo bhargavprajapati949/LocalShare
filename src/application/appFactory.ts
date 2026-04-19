@@ -20,6 +20,7 @@ import { isLoopbackAddress } from '../domain/models/hostSession';
 import type { FileSystemPort, HostSessionPort } from '../domain/ports';
 import type { ListFilesUseCase } from './useCases/listFiles';
 import type { DownloadFileUseCase } from './useCases/downloadFile';
+import type { DownloadDirectoryUseCase } from './useCases/downloadDirectory';
 import { isDomainError } from '../domain/errors';
 
 /**
@@ -47,6 +48,7 @@ interface AppContext {
  * @param sessionState - Host session (injectable for testing)
  * @param listFilesUseCase - Use case for directory listing
  * @param downloadFileUseCase - Use case for file download
+ * @param downloadDirectoryUseCase - Use case for directory download as ZIP
  * @returns App context with Express instance
  */
 export function createApp(
@@ -54,6 +56,7 @@ export function createApp(
   sessionState: HostSessionPort,
   listFilesUseCase: ListFilesUseCase,
   downloadFileUseCase: DownloadFileUseCase,
+  downloadDirectoryUseCase: DownloadDirectoryUseCase,
 ): AppContext {
   const app = express();
 
@@ -406,6 +409,42 @@ export function createApp(
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
           error: 'Unable to read file',
           code: 'STREAM_ERROR',
+        });
+      }
+    });
+
+    stream.pipe(res);
+  });
+
+  /**
+   * GET /api/download-directory - Download a directory as ZIP
+   */
+  app.get('/api/download-directory', requirePin, async (req, res) => {
+    const rootId = String(req.query.root || '0');
+    const relPath = String(req.query.path || '');
+
+    const result = await downloadDirectoryUseCase.execute(rootId, relPath);
+
+    if (!result.ok) {
+      const error = result.error;
+      const statusCode = isDomainError(error) ? error.statusCode : HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      res.status(statusCode).json({
+        error: error.message,
+        code: error.code,
+      });
+      return;
+    }
+
+    const { stream, filename } = result.value;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+          error: 'Unable to create archive',
+          code: 'ARCHIVE_ERROR',
         });
       }
     });
