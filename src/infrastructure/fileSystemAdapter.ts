@@ -174,6 +174,54 @@ export class FileSystemAdapter implements FileSystemPort {
   }
 
   /**
+   * Save uploaded file to target directory
+   * @param targetDir - Resolved target directory
+   * @param filename - Name for the file
+   * @param data - File data buffer
+   * @returns Result with saved file info or error
+   */
+  async saveUploadedFile(targetDir: ResolvedTarget, filename: string, data: Buffer): Promise<Result<{ absPath: string; relPath: string }>> {
+    try {
+      // Verify target is a directory
+      const stat = await fsp.stat(targetDir.absPath);
+      if (!stat.isDirectory()) {
+        return err(new FileAccessError('Target is not a directory'));
+      }
+
+      // Sanitize filename (prevent directory traversal in filename)
+      const safeFilename = path.basename(filename);
+      if (!safeFilename || safeFilename === '.') {
+        return err(new FileAccessError('Invalid filename'));
+      }
+
+      // Build final path
+      const absPath = path.join(targetDir.absPath, safeFilename);
+
+      // Verify final path is still within root
+      const root = { absPath: targetDir.absPath.split('/').slice(0, -targetDir.relPath.split('/').filter(Boolean).length).join('/') };
+      if (!this.isInsideRoot(root.absPath || targetDir.absPath, absPath)) {
+        return err(new FileAccessError('File path would escape root'));
+      }
+
+      // Write file
+      await fsp.writeFile(absPath, data);
+
+      return ok({
+        absPath,
+        relPath: targetDir.relPath ? `${targetDir.relPath}/${safeFilename}` : safeFilename,
+      });
+    } catch (error) {
+      if (error instanceof Error && 'code' in error) {
+        const code = (error as any).code;
+        if (code === 'EACCES') {
+          return err(new FileAccessError('Permission denied'));
+        }
+      }
+      return err(new FileAccessError('Failed to save file'));
+    }
+  }
+
+  /**
    * Validate and sanitize relative path
    * @param relPath - Relative path from user
    * @returns Sanitized path or error

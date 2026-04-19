@@ -18,6 +18,7 @@ import { HostSessionState } from './domain/models/hostSession';
 import { ListFilesUseCase } from './application/useCases/listFiles';
 import { DownloadFileUseCase } from './application/useCases/downloadFile';
 import { DownloadDirectoryUseCase } from './application/useCases/downloadDirectory';
+import { UploadFileUseCase } from './application/useCases/uploadFile';
 
 async function withTempRoot(run: (rootPath: string) => Promise<void>): Promise<void> {
   const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'lan-file-host-app-test-'));
@@ -48,8 +49,9 @@ test('status includes host ip candidates and sharing state', async () => {
     const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
     const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
     const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
     const response = await request(app).get('/api/status').expect(200);
 
     assert.equal(response.body.sharingActive, true);
@@ -81,8 +83,9 @@ test('list route blocks while host sharing is stopped and resumes after start', 
     const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
     const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
     const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
 
     await request(app).post('/api/host/stop').expect(200);
     await request(app).get('/api/list?root=0&path=').expect(503);
@@ -124,7 +127,8 @@ test('host can update shared root at runtime and clients see new directory', asy
       const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
       const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
       const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
-      const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase);
+      const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+      const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
 
       const before = await request(app).get('/api/list?root=0&path=').expect(200);
       assert.equal(
@@ -175,8 +179,9 @@ test('download endpoint supports HTTP range requests for resumable downloads', a
     const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
     const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
     const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
 
     const response = await request(app)
       .get('/api/download?root=0&path=sample.txt')

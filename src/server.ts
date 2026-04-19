@@ -12,6 +12,7 @@ import { HostSessionState } from './domain/models/hostSession';
 import { ListFilesUseCase } from './application/useCases/listFiles';
 import { DownloadFileUseCase } from './application/useCases/downloadFile';
 import { DownloadDirectoryUseCase } from './application/useCases/downloadDirectory';
+import { UploadFileUseCase } from './application/useCases/uploadFile';
 import { createApp } from './application/appFactory';
 
 /**
@@ -31,9 +32,10 @@ function main(): void {
   const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
   const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
   const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+  const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
 
   // Create Express app (injected with all dependencies)
-  const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase);
+  const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
 
   // Start server
   const server = app.listen(config.port, config.host, () => {

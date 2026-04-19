@@ -12,6 +12,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import type { AppConfig } from '../infrastructure/config';
 import { getLanIPv4Candidates } from '../infrastructure/config';
 import { generateQrDataUrl } from '../infrastructure/qrService';
@@ -21,6 +22,7 @@ import type { FileSystemPort, HostSessionPort } from '../domain/ports';
 import type { ListFilesUseCase } from './useCases/listFiles';
 import type { DownloadFileUseCase } from './useCases/downloadFile';
 import type { DownloadDirectoryUseCase } from './useCases/downloadDirectory';
+import type { UploadFileUseCase } from './useCases/uploadFile';
 import { isDomainError } from '../domain/errors';
 
 /**
@@ -49,6 +51,7 @@ interface AppContext {
  * @param listFilesUseCase - Use case for directory listing
  * @param downloadFileUseCase - Use case for file download
  * @param downloadDirectoryUseCase - Use case for directory download as ZIP
+ * @param uploadFileUseCase - Use case for file upload
  * @returns App context with Express instance
  */
 export function createApp(
@@ -57,6 +60,7 @@ export function createApp(
   listFilesUseCase: ListFilesUseCase,
   downloadFileUseCase: DownloadFileUseCase,
   downloadDirectoryUseCase: DownloadDirectoryUseCase,
+  uploadFileUseCase: UploadFileUseCase,
 ): AppContext {
   const app = express();
 
@@ -123,6 +127,14 @@ export function createApp(
 
     next();
   }
+
+  /**
+   * Multer middleware for file uploads
+   */
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
+  });
 
   // ============ Routes ============
 
@@ -450,6 +462,46 @@ export function createApp(
     });
 
     stream.pipe(res);
+  });
+
+  /**
+   * POST /api/upload - Upload a file to a directory
+   */
+  app.post('/api/upload', requirePin, upload.single('file'), async (req, res) => {
+    const file = (req as any).file;
+    if (!file) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: 'No file provided',
+        code: 'NO_FILE',
+      });
+      return;
+    }
+
+    const rootId = String(req.query.root || '0');
+    const relPath = String(req.query.path || '');
+
+    const result = await uploadFileUseCase.execute(rootId, relPath, file.originalname, file.buffer);
+
+    if (!result.ok) {
+      const error = result.error;
+      const statusCode = isDomainError(error) ? error.statusCode : HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      res.status(statusCode).json({
+        error: error.message,
+        code: error.code,
+      });
+      return;
+    }
+
+    const { relPath: savedRelPath, size } = result.value;
+
+    res.status(200).json({
+      success: true,
+      file: {
+        relPath: savedRelPath,
+        size,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
   });
 
   return { app, sessionState };

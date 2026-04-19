@@ -65,6 +65,15 @@ export interface FileSystemPort {
    * @returns MIME type or application/octet-stream
    */
   getContentType(filename: string): string;
+
+  /**
+   * Save an uploaded file to the specified directory
+   * @param targetDir - Resolved target directory where file will be saved
+   * @param filename - Name for the uploaded file
+   * @param data - File data as Buffer
+   * @returns Result with the saved file path or error
+   */
+  saveUploadedFile(targetDir: ResolvedTarget, filename: string, data: Buffer): Promise<Result<{ absPath: string; relPath: string }>>;
 }
 
 /**
