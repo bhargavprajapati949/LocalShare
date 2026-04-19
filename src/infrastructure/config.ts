@@ -23,6 +23,8 @@ export interface AppConfig {
   readonly sessionPin?: string;
   /** Advertise via mDNS/Bonjour on the local network (default: true) */
   readonly mdnsEnabled: boolean;
+  /** Custom domain name for mDNS resolution (e.g., "my-files.local") */
+  readonly customDomainName?: string;
 }
 
 /**
@@ -56,6 +58,7 @@ export function loadConfig(): AppConfig {
   const port = Number(process.env.PORT ?? 8080);
   const sessionPin = process.env.SESSION_PIN?.trim() || undefined;
   const mdnsEnabled = (process.env.MDNS_ENABLED ?? '1') !== '0';
+  const customDomainName = process.env.CUSTOM_DOMAIN_NAME?.trim() || undefined;
 
   return {
     host,
@@ -63,6 +66,7 @@ export function loadConfig(): AppConfig {
     roots: parseRoots(process.env.SHARE_ROOTS),
     sessionPin,
     mdnsEnabled,
+    customDomainName,
   };
 }
 

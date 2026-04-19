@@ -525,6 +525,16 @@ export function renderAdminUI(): string {
         <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Open the client UI below to access files from any device on the LAN.</p>
         <button id="openClientUI" class="secondary">Open Client UI</button>
       </div>
+      <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+        <h2 style="margin:0 0 12px;font-size:16px;">Network Configuration</h2>
+        <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Configure mDNS domain name for easy network access.</p>
+        <div class="host-row">
+          <label for="domainName" class="host-label" style="grid-column:1/-1">Custom domain name (mDNS)</label>
+          <input id="domainName" type="text" placeholder="e.g., my-files.local" autocomplete="off" />
+          <button id="saveDomain" class="secondary">Save Domain</button>
+        </div>
+        <p id="domainStatus" style="margin:8px 0 0;color:var(--muted);font-size:12px;"></p>
+      </div>
     </section>
     <script>
       const state={sharingActive:true};
@@ -533,7 +543,8 @@ export function renderAdminUI(): string {
             stopSharingEl=document.getElementById("stopSharing"),shareRootPathEl=document.getElementById("shareRootPath"),
             pickShareRootEl=document.getElementById("pickShareRoot"),warningEl=document.getElementById("warning"),
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
-            openClientUIEl=document.getElementById("openClientUI");
+            openClientUIEl=document.getElementById("openClientUI"),domainNameEl=document.getElementById("domainName"),
+            saveDomainEl=document.getElementById("saveDomain"),domainStatusEl=document.getElementById("domainStatus");
       function apiUrl(ep,p={}){const u=new URL(ep,window.location.origin);for(const[k,v]of Object.entries(p))if(v!=null&&v!=="")u.searchParams.set(k,String(v));return u;}
       function renderWarning(s){warningEl.className=s.securityMode==="open-local-network"?"banner":"banner safe";warningEl.textContent=s.securityMode==="open-local-network"?"⚠ PIN is disabled":"✓ PIN is active";}
       function renderHostSummary(s){const started=s.lastStartedAt?new Date(s.lastStartedAt).toLocaleTimeString():"—";sharingStateEl.textContent=s.sharingActive?"Active (started "+started+")":"Stopped";hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No IPv4 detected";state.sharingActive=Boolean(s.sharingActive);startSharingEl.hidden=state.sharingActive;stopSharingEl.hidden=!state.sharingActive;}
@@ -542,13 +553,17 @@ export function renderAdminUI(): string {
       async function sendHostControl(action){const r=await fetch(apiUrl("/api/host/"+action),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
       async function applySharedDirectory(){const absPath=shareRootPathEl.value.trim();if(!absPath){alert("Enter a path");return;}const r=await fetch(apiUrl("/api/host/share-root"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({absPath})});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
       async function pickSharedDirectory(){const r=await fetch(apiUrl("/api/host/pick-share-root"),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}const payload=await r.json();if(payload&&payload.absPath)shareRootPathEl.value=payload.absPath;await loadStatus();}
+      async function loadDomainName(){try{const r=await fetch("/api/host/domain-name");if(!r.ok)return;const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"Domain: "+data.domainName:"Suggested: "+data.suggested;}catch{}}
+      async function saveDomainName(){const domainName=domainNameEl.value.trim();const r=await fetch("/api/host/domain-name",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({domainName:domainName||undefined})});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"✓ Domain updated: "+data.domainName:"Suggested: "+data.suggested;}
       startSharingEl.addEventListener("click",()=>sendHostControl("start"));
       stopSharingEl.addEventListener("click",()=>sendHostControl("stop"));
       pickShareRootEl.addEventListener("click",pickSharedDirectory);
       shareRootPathEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")applySharedDirectory();});
+      saveDomainEl.addEventListener("click",saveDomainName);
+      domainNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveDomainName();});
       refreshStatusEl.addEventListener("click",async()=>loadStatus());
       openClientUIEl.addEventListener("click",()=>window.location.href="/");
-      (async()=>{await loadStatus();loadQr();})();
+      (async()=>{await loadStatus();loadQr();await loadDomainName();})();
     </script>
   </body>
 </html>`;

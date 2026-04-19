@@ -75,6 +75,7 @@ export function createApp(
   function buildStatusDto(req: Request) {
     const lanAddresses = getLanIPv4Candidates();
     const snapshot = sessionState.getSnapshot();
+    const domainName = sessionState.getDomainName() || config.customDomainName;
 
     return {
       appName: 'LAN File Host',
@@ -91,6 +92,8 @@ export function createApp(
       sharingActive: snapshot.sharingActive,
       lastStartedAt: snapshot.lastStartedAt,
       lastStoppedAt: snapshot.lastStoppedAt,
+      domainName,
+      mdnsEnabled: config.mdnsEnabled,
     };
   }
 
@@ -312,6 +315,41 @@ export function createApp(
         code: 'PICKER_CANCELED',
       });
     }
+  });
+
+  /**
+   * GET /api/host/domain-name - Get current domain name
+   */
+  app.get('/api/host/domain-name', (req, res) => {
+    const domainName = sessionState.getDomainName() || config.customDomainName;
+    res.json({
+      domainName,
+      suggested: `lan-${process.env.HOSTNAME || 'host'}.local`,
+    });
+  });
+
+  /**
+   * POST /api/host/domain-name - Set custom domain name
+   */
+  app.post('/api/host/domain-name', requireLocalControl, (req, res) => {
+    const { domainName } = req.body || {};
+    const sanitized = String(domainName || '').trim().toLowerCase();
+
+    if (sanitized && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.local$/.test(sanitized)) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: 'Invalid domain name format. Must be valid mDNS name (e.g., my-files.local)',
+        code: 'INVALID_DOMAIN',
+      });
+      return;
+    }
+
+    sessionState.setDomainName(sanitized || undefined);
+
+    res.json({
+      message: 'Domain name updated',
+      domainName: sessionState.getDomainName(),
+      suggested: `lan-${process.env.HOSTNAME || 'host'}.local`,
+    });
   });
 
   /**

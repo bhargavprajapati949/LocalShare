@@ -139,4 +139,16 @@ export interface HostSessionPort {
     readonly lastStartedAt: string;
     readonly lastStoppedAt?: string;
   };
+
+  /**
+   * Get custom domain name
+   * @returns Custom domain name or undefined
+   */
+  getDomainName(): string | undefined;
+
+  /**
+   * Set custom domain name
+   * @param domainName - New domain name or undefined to clear
+   */
+  setDomainName(domainName: string | undefined): void;
 }

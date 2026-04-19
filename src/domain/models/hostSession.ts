@@ -24,6 +24,7 @@ export class HostSessionState implements HostSessionPort {
   private sharingActive = true;
   private lastStartedAt = new Date().toISOString();
   private lastStoppedAt?: string;
+  private customDomainName?: string;
 
   /**
    * Start sharing (idempotent)
@@ -69,6 +70,22 @@ export class HostSessionState implements HostSessionPort {
       lastStartedAt: this.lastStartedAt,
       lastStoppedAt: this.lastStoppedAt,
     };
+  }
+
+  /**
+   * Get custom domain name
+   * @returns Custom domain name or undefined
+   */
+  public getDomainName(): string | undefined {
+    return this.customDomainName;
+  }
+
+  /**
+   * Set custom domain name
+   * @param domainName - New domain name or undefined to clear
+   */
+  public setDomainName(domainName: string | undefined): void {
+    this.customDomainName = domainName?.trim() || undefined;
   }
 }
 
