@@ -1,0 +1,133 @@
+/**
+ * Port interfaces for file system operations
+ * 
+ * Infrastructure adapters (fileService) implement these contracts.
+ * Domain layer depends on these ports, not on implementations.
+ */
+
+import type { Result } from '../result';
+
+/** Represents a directory or file entry */
+export interface FileListEntry {
+  readonly name: string;
+  readonly relPath: string;
+  readonly isDirectory: boolean;
+  readonly size: number;
+  readonly modifiedAt: string;
+}
+
+/** Resolved file target with all path information */
+export interface ResolvedTarget {
+  readonly rootId: string;
+  readonly relPath: string;
+  readonly absPath: string;
+}
+
+/**
+ * Port: File system operations
+ * 
+ * Implementations handle actual FS I/O with proper error handling.
+ * Returns Result<T> to avoid throwing across layers.
+ */
+export interface FileSystemPort {
+  /**
+   * Resolve and validate a file path within allowed roots
+   * @param rootId - Which share root to use
+   * @param relPath - Relative path within root
+   * @returns Resolved target or path traversal error
+   */
+  resolveTarget(rootId: string, relPath: string): Result<ResolvedTarget>;
+
+  /**
+   * List directory contents, sorted (directories first, then alphabetically)
+   * @param target - Resolved target directory
+   * @returns Array of entries or access error
+   */
+  listDirectory(target: ResolvedTarget): Promise<Result<FileListEntry[]>>;
+
+  /**
+   * Get file metadata (size, isFile, isDirectory, etc)
+   * @param target - Resolved target
+   * @returns File stats or not found error
+   */
+  statTarget(target: ResolvedTarget): Promise<Result<{ isFile: boolean; isDirectory: boolean; size: number }>>;
+
+  /**
+   * Create a readable stream for file download
+   * @param absPath - Absolute file path
+   * @returns Readable stream that may emit error event
+   */
+  createDownloadStream(absPath: string): NodeJS.ReadableStream;
+
+  /**
+   * Get MIME type for a filename
+   * @param filename - File name to check
+   * @returns MIME type or application/octet-stream
+   */
+  getContentType(filename: string): string;
+}
+
+/**
+ * Port: Path validation and traversal safety
+ * 
+ * Responsible for ensuring paths cannot escape allowed roots.
+ */
+export interface PathValidatorPort {
+  /**
+   * Validate a relative path is safe (no parent directory traversal)
+   * @param relPath - Relative path to validate
+   * @returns Sanitized path or InvalidPathError
+   */
+  validateRelPath(relPath: string): Result<string>;
+
+  /**
+   * Check if an absolute path is within the allowed root
+   * @param rootAbs - Root directory absolute path
+   * @param targetAbs - Target absolute path
+   * @returns true if target is within root
+   */
+  isInsideRoot(rootAbs: string, targetAbs: string): boolean;
+}
+
+/**
+ * Port: Host session lifecycle management
+ * 
+ * Tracks whether file sharing is currently active or stopped.
+ */
+export interface HostSessionPort {
+  /**
+   * Start sharing (idempotent)
+   * @returns Updated session snapshot
+   */
+  startSharing(): {
+    readonly sharingActive: boolean;
+    readonly lastStartedAt: string;
+    readonly lastStoppedAt?: string;
+  };
+
+  /**
+   * Stop sharing (idempotent)
+   * @returns Updated session snapshot
+   */
+  stopSharing(): {
+    readonly sharingActive: boolean;
+    readonly lastStartedAt: string;
+    readonly lastStoppedAt?: string;
+  };
+
+  /**
+   * Check if sharing is currently active
+   * @returns true if active
+   */
+  isSharingActive(): boolean;
+
+  /**
+   * Get current session snapshot
+   * @returns Full session state
+   */
+  getSnapshot(): {
+    readonly sharingActive: boolean;
+    readonly lastStartedAt: string;
+    readonly lastStoppedAt?: string;
+  };
+}
