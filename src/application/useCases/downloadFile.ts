@@ -37,6 +37,7 @@ export class DownloadFileUseCase {
       stream: NodeJS.ReadableStream;
       mimeType: string;
       filename: string;
+      size: number;
     }>
   > {
     // Business rule: sharing must be active
@@ -72,6 +73,7 @@ export class DownloadFileUseCase {
       stream,
       mimeType,
       filename,
+      size: statsResult.value.size,
     });
   }
 }

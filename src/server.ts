@@ -5,6 +5,7 @@
  * This is the composition root where all layers are connected.
  */
 
+import Bonjour from 'bonjour-service';
 import { loadConfig, getLanIPv4Candidates } from './infrastructure/config';
 import { FileSystemAdapter } from './infrastructure/fileSystemAdapter';
 import { HostSessionState } from './domain/models/hostSession';
@@ -33,7 +34,7 @@ function main(): void {
   const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase);
 
   // Start server
-  app.listen(config.port, config.host, () => {
+  const server = app.listen(config.port, config.host, () => {
     const addresses = getLanIPv4Candidates()
       .map((ip) => `http://${ip}:${config.port}`)
       .join('\n');
@@ -53,6 +54,28 @@ function main(): void {
     const snapshot = sessionState.getSnapshot();
     console.log(`Sharing active: ${snapshot.sharingActive}`);
     console.log('Host control API endpoints are localhost-only: POST /api/host/start and POST /api/host/stop');
+
+    // Advertise via mDNS/Bonjour so devices discover automatically
+    if (config.mdnsEnabled) {
+      const bonjour = new Bonjour();
+      const bonjourService = bonjour.publish({
+        name: 'LAN File Host',
+        type: 'http',
+        port: config.port,
+      });
+
+      const shutdown = (): void => {
+        bonjour.unpublishAll(() => {
+          bonjour.destroy();
+          server.close(() => process.exit(0));
+        });
+      };
+
+      process.once('SIGINT', shutdown);
+      process.once('SIGTERM', shutdown);
+
+      console.log('mDNS: advertising LAN File Host on local network');
+    }
   });
 }
 

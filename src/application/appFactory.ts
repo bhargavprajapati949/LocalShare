@@ -10,6 +10,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import cors from 'cors';
 import type { AppConfig } from '../infrastructure/config';
 import { getLanIPv4Candidates } from '../infrastructure/config';
+import { generateQrDataUrl } from '../infrastructure/qrService';
 import { renderHomePage } from '../interface/html';
 import { isLoopbackAddress } from '../domain/models/hostSession';
 import type { FileSystemPort, HostSessionPort } from '../domain/ports';
@@ -64,7 +65,7 @@ export function createApp(
 
     return {
       appName: 'LAN File Host',
-      version: '0.2.0',
+      version: '1.0.0',
       host: config.host,
       port: config.port,
       requiresPin: Boolean(config.sessionPin),
@@ -128,6 +129,26 @@ export function createApp(
    */
   app.get('/api/status', (req, res) => {
     res.json(buildStatusDto(req));
+  });
+
+  /**
+   * GET /api/qr - QR code PNG (data URL) for the primary LAN URL
+   * Generates QR for the server's own address; no client-supplied URL accepted.
+   */
+  app.get('/api/qr', async (_req, res) => {
+    const candidates = getLanIPv4Candidates();
+    const primaryIp = candidates[0] ?? '127.0.0.1';
+    const url = `http://${primaryIp}:${config.port}`;
+
+    try {
+      const dataUrl = await generateQrDataUrl(url);
+      res.json({ url, dataUrl });
+    } catch {
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+        error: 'Failed to generate QR code',
+        code: 'QR_GENERATION_FAILED',
+      });
+    }
   });
 
   /**
@@ -198,10 +219,11 @@ export function createApp(
       return;
     }
 
-    const { stream, mimeType, filename, target } = result.value;
+    const { stream, mimeType, filename, target, size } = result.value;
 
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('Content-Length', size);
 
     stream.on('error', () => {
       if (!res.headersSent) {

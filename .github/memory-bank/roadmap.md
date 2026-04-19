@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Active Phase
-v0
+v1
 
-## v0 - Core Transfer Loop
+## v0 - Core Transfer Loop ✓
 - Start/stop host server
 - Select shared root folders
 - Browser directory listing
@@ -11,7 +11,7 @@ v0
 - Path traversal protection
 - Host status + open-mode warning
 
-## v1 - MVP Beta
+## v1 - MVP Beta ✓
 - QR share
 - mDNS discovery
 - Better UI + progress

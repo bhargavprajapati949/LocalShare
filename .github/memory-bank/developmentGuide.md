@@ -98,6 +98,37 @@ src/
 | `node --test src/app.test.ts` | Run single test file |
 | `NODE_DEBUG=* npm run dev` | Debug with Node trace |
 
+## Git & Collaboration Workflow
+**Principle**: AI suggests git actions; human reviews and decides to commit/push.
+
+### AI-Suggested Workflow
+1. AI implements code changes, tests, and builds locally.
+2. AI reports: "✓ Typecheck passing, ✓ Tests passing, ✓ Ready to commit."
+3. AI suggests: "Recommended commit: `git add . && git commit -m '...message...'`"
+4. **Human action**: Review changes in diff; decide to commit or reject.
+5. AI suggests push: "Ready to push to branch: `git push origin feature/...`"
+6. **Human action**: Verify branch, CI readiness; decide to push or iterate.
+7. AI suggests PR: "Open PR with title: 'Feature: ...' and description: ..."
+8. **Human action**: Review PR template; merge when ready.
+
+### Never Automatic
+- ❌ AI does NOT commit without asking.
+- ❌ AI does NOT push without explicit human approval.
+- ❌ AI does NOT merge branches without review.
+- ✅ AI ALWAYS suggests next action in terminal-ready format.
+- ✅ AI ALWAYS shows `git diff` or changed files before suggesting commit.
+- ✅ AI ALWAYS includes rationale for change suggestions.
+
+### Suggested Commit Message Format
+```
+<type>(<scope>): <subject>
+
+<body (optional)>
+
+Fixes: #<issue> (if applicable)
+```
+Types: feat, fix, refactor, test, docs, style, chore
+
 ## Next Implementation Focus
 - Refactor existing code into layer structure (domain → app → infra → interface).
 - Add ESLint + Prettier configuration.

@@ -21,6 +21,8 @@ export interface AppConfig {
   readonly port: number;
   readonly roots: ShareRoot[];
   readonly sessionPin?: string;
+  /** Advertise via mDNS/Bonjour on the local network (default: true) */
+  readonly mdnsEnabled: boolean;
 }
 
 /**
@@ -53,12 +55,14 @@ export function loadConfig(): AppConfig {
   const host = process.env.HOST ?? '0.0.0.0';
   const port = Number(process.env.PORT ?? 8080);
   const sessionPin = process.env.SESSION_PIN?.trim() || undefined;
+  const mdnsEnabled = (process.env.MDNS_ENABLED ?? '1') !== '0';
 
   return {
     host,
     port,
     roots: parseRoots(process.env.SHARE_ROOTS),
     sessionPin,
+    mdnsEnabled,
   };
 }
 

@@ -39,6 +39,7 @@ test('status includes host ip candidates and sharing state', async () => {
           absPath: rootPath,
         },
       ],
+      mdnsEnabled: false,
     };
 
     const sessionState = new HostSessionState();
@@ -70,6 +71,7 @@ test('list route blocks while host sharing is stopped and resumes after start', 
           absPath: rootPath,
         },
       ],
+      mdnsEnabled: false,
     };
 
     const sessionState = new HostSessionState();
