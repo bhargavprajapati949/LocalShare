@@ -1,5 +1,0 @@
-# Populated by scripts/sync-android.sh — do not commit
-dist/
-node_modules/
-package.json
-package-lock.json

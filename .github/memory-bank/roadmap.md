@@ -50,7 +50,6 @@ Status values:
 ### Distribution
 - Multi-platform packaging quality - done
 - Distribution strategy and install/run flow across platforms - inprogress
-  - Android APK via nodejs-mobile-android (android/ project) - inprogress
 
 ### Power User and Extensibility
 - CLI mode - todo
