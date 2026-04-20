@@ -132,14 +132,14 @@ export function renderHomePage(): string {
       </div>
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="list" id="list"></div>
-           <section class="download-panel">
+        <section class="download-panel">
              <h3>Uploads</h3>
              <div style="margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
                <input id="fileInput" type="file" style="flex:1;" />
                <button id="uploadBtn" class="secondary">📤 Upload</button>
              </div>
              <div id="uploadItems" class="download-empty">No uploads yet.</div>
-           </section>
+        </section>
       <section class="download-panel">
         <h3>Downloads</h3>
         <div id="downloadItems" class="download-empty">No downloads yet.</div>
