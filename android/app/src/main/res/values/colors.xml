@@ -1,0 +1,9 @@
+<resources>
+    <color name="background">#FAFAFA</color>
+    <color name="text_primary">#1A1A2E</color>
+    <color name="text_secondary">#666680</color>
+    <color name="accent">#4F6AF0</color>
+    <color name="dot_green">#34C759</color>
+    <color name="dot_red">#FF3B30</color>
+    <color name="dot_grey">#AEAEB2</color>
+</resources>
