@@ -223,6 +223,7 @@ export function renderHomePage(): string {
       async function loadStatus(){
         const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status error");
         const s=await r.json();state.roots=s.roots;
+         state.uploadMaxSizeMb=s.uploadMaxSizeMb||51200;state.uploadEnabled=Boolean(s.uploadEnabled);
         const hasCurrentRoot=s.roots.some((root)=>root.id===state.root);
         state.root=hasCurrentRoot?state.root:((s.roots[0]&&s.roots[0].id)||"");
         renderWarning(s);renderHostSummary(s);rootEl.innerHTML="";
