@@ -59,7 +59,12 @@ function main(): void {
       },
     } as unknown as Parameters<typeof bonjour.publish>[0];
 
-    activeService = bonjour.publish(serviceConfig);
+    const svc = bonjour.publish(serviceConfig);
+    // Suppress well-known bonjour conflicts (duplicate service name on LAN)
+    (svc as unknown as { on?: (evt: string, cb: (err: Error) => void) => void }).on?.('error', (err: Error) => {
+      console.warn(`mDNS: ${err.message}`);
+    });
+    activeService = svc;
 
     if (previous?.stop) {
       previous.stop(() => undefined);

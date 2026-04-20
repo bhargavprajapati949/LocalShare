@@ -166,6 +166,8 @@ export function renderHomePage(): string {
             savePin=(p)=>p?sessionStorage.setItem(PIN_KEY,p):sessionStorage.removeItem(PIN_KEY),
             clearPin=()=>{sessionStorage.removeItem(PIN_KEY);state.pin="";pinInputEl.value="";};
       function formatSpeed(v){if(!v||v<=0)return"\u2014";return formatBytes(v)+"/s";}
+      const UPLOAD_CHUNK_SIZE=2*1024*1024;
+      const currentPin=()=>pinInputEl.value.trim()||state.pin||storedPin();
       function setDownloadMode(mode){
         state.downloadMode=mode;
         localStorage.setItem("lan_download_mode",mode);
@@ -224,6 +226,8 @@ export function renderHomePage(): string {
         const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status error");
         const s=await r.json();state.roots=s.roots;
          state.uploadMaxSizeMb=s.uploadMaxSizeMb||51200;state.uploadEnabled=Boolean(s.uploadEnabled);
+        fileInputEl.disabled=!state.uploadEnabled;
+        uploadBtnEl.disabled=!state.uploadEnabled||!fileInputEl.files?.length;
         const hasCurrentRoot=s.roots.some((root)=>root.id===state.root);
         state.root=hasCurrentRoot?state.root:((s.roots[0]&&s.roots[0].id)||"");
         renderWarning(s);renderHostSummary(s);rootEl.innerHTML="";
@@ -411,33 +415,144 @@ export function renderHomePage(): string {
          if(sizeMb>state.uploadMaxSizeMb){alert("File exceeds "+state.uploadMaxSizeMb+" MB limit");fileInputEl.value="";return;}
          uploadBtnEl.disabled=false;
        }
-       async function uploadFile(){
-         const file=fileInputEl.files?.[0];
-         if(!file)return;
-         const id=Math.random().toString(36).slice(2);
-         const upload={id,filename:file.name,size:file.size,received:0,status:"uploading",error:null,speed:0,startTime:Date.now()};
-         state.uploads.set(id,upload);renderUploadPanel();
-         const formData=new FormData();formData.append("file",file);formData.append("pin",state.pin);
-         try{
+       function pauseUpload(id){
+         const upload=state.uploads.get(id);
+         if(!upload||upload.status!=="uploading")return;
+         upload.abortReason="paused";
+         upload.status="paused";
+         upload.speed=0;
+         if(upload.chunkXhr){upload.chunkXhr.abort();}else{renderUploadPanel();}
+       }
+       async function cancelUpload(id){
+         const upload=state.uploads.get(id);
+         if(!upload)return;
+         upload.abortReason="canceled";
+         if(upload.chunkXhr)upload.chunkXhr.abort();
+         upload.status="canceled";
+         upload.error=null;
+         upload.speed=0;
+         renderUploadPanel();
+         if(upload.uploadId){
+           await fetch(apiUrl("/api/upload/resumable",{uploadId:upload.uploadId,pin:currentPin()}),{method:"DELETE"}).catch(()=>{});
+           upload.uploadId=null;
+           upload.received=0;
+         }
+       }
+       function sendChunk(upload){
+         return new Promise((resolve,reject)=>{
+           const chunkStart=upload.received;
+           const chunkEnd=Math.min(chunkStart+UPLOAD_CHUNK_SIZE,upload.size);
+           const chunkBlob=upload.file.slice(chunkStart,chunkEnd);
+           const startedAt=Date.now();
+           const bytesAtStart=chunkStart;
            const xhr=new XMLHttpRequest();
+           upload.chunkXhr=xhr;
            xhr.upload.addEventListener("progress",(e)=>{
              if(e.lengthComputable){
-               upload.received=e.loaded;
-               const elapsedMs=Date.now()-upload.startTime;
-               upload.speed=elapsedMs>0?e.loaded/(elapsedMs/1000):0;
+               upload.received=chunkStart+e.loaded;
+               const elapsed=Math.max(1,Date.now()-startedAt);
+               upload.speed=(upload.received-bytesAtStart)/(elapsed/1000);
                renderUploadPanel();
              }
            });
            xhr.addEventListener("load",()=>{
-             if(xhr.status===200||xhr.status===201){upload.status="completed";}
-             else{upload.status="error";upload.error="HTTP "+xhr.status;}
-             renderUploadPanel();
+             upload.chunkXhr=null;
+             if(xhr.status===409){
+               try{const c=JSON.parse(xhr.responseText);upload.received=Number(c.expectedOffset)||chunkStart;}catch{}
+               resolve({conflict:true});return;
+             }
+             if(xhr.status===200||xhr.status===201){
+               try{const d=JSON.parse(xhr.responseText);upload.received=Number(d.receivedBytes)||chunkEnd;}catch{upload.received=chunkEnd;}
+               resolve({conflict:false});return;
+             }
+             let msg="Chunk upload failed";
+             try{const e=JSON.parse(xhr.responseText);msg=e.error||msg;}catch{}
+             reject(new Error(msg));
            });
-           xhr.addEventListener("error",()=>{upload.status="error";upload.error="Network error";renderUploadPanel();});
-           xhr.open("POST",apiUrl("/api/upload"));
-           xhr.send(formData);
-         }catch(err){upload.status="error";upload.error=err.message;renderUploadPanel();}
-         fileInputEl.value="";uploadBtnEl.disabled=true;
+           xhr.addEventListener("abort",()=>{
+             upload.chunkXhr=null;
+             const e=new Error("Aborted");e.name="AbortError";reject(e);
+           });
+           xhr.addEventListener("error",()=>{
+             upload.chunkXhr=null;
+             reject(new Error("Network error during chunk upload"));
+           });
+           const url=apiUrl("/api/upload/resumable/chunk",{uploadId:upload.uploadId,offset:chunkStart,pin:currentPin()});
+           xhr.open("POST",url.toString());
+           xhr.setRequestHeader("Content-Type","application/octet-stream");
+           xhr.send(chunkBlob);
+         });
+       }
+       async function startUpload(id){
+         const upload=state.uploads.get(id);
+         if(!upload||!upload.file||upload.status==="uploading")return;
+         if(!state.uploadEnabled){upload.status="error";upload.error="Uploads are disabled by host";renderUploadPanel();return;}
+         upload.status="uploading";
+         upload.error=null;
+         upload.abortReason="";
+         renderUploadPanel();
+         try{
+           if(!upload.uploadId){
+             const initResp=await fetch(apiUrl("/api/upload/resumable/init",{pin:currentPin()}),{
+               method:"POST",
+               headers:{"Content-Type":"application/json"},
+               body:JSON.stringify({filename:upload.filename,size:upload.size,root:state.root,path:state.path})
+             });
+             if(!initResp.ok){const e=await initResp.json().catch(()=>({error:"Failed to initialize upload"}));throw new Error(e.error||"Failed to initialize upload");}
+             const initData=await initResp.json();
+             upload.uploadId=initData.uploadId;
+             upload.received=Number(initData.receivedBytes)||0;
+           }else{
+             const statusResp=await fetch(apiUrl("/api/upload/resumable/status",{uploadId:upload.uploadId,pin:currentPin()}));
+             if(statusResp.ok){const s=await statusResp.json();upload.received=Number(s.receivedBytes)||upload.received;}
+           }
+           renderUploadPanel();
+           while(upload.received<upload.size){
+             if(upload.abortReason==="paused"||upload.status==="paused"){const e=new Error("Aborted");e.name="AbortError";throw e;}
+             if(upload.abortReason==="canceled"||upload.status==="canceled"){const e=new Error("Aborted");e.name="AbortError";throw e;}
+             await sendChunk(upload);
+             renderUploadPanel();
+           }
+           const doneResp=await fetch(apiUrl("/api/upload/resumable/complete",{uploadId:upload.uploadId,pin:currentPin()}),{method:"POST"});
+           if(!doneResp.ok){const e=await doneResp.json().catch(()=>({error:"Failed to finalize upload"}));throw new Error(e.error||"Failed to finalize upload");}
+           upload.status="completed";
+           upload.received=upload.size;
+           upload.speed=0;
+           renderUploadPanel();
+           await loadDirectory().catch(()=>{});
+         }catch(err){
+           if(err&&err.name==="AbortError"){
+             if(upload.status!=="canceled")upload.status=upload.abortReason==="canceled"?"canceled":"paused";
+             if((upload.abortReason==="canceled"||upload.status==="canceled")&&upload.uploadId){
+               await fetch(apiUrl("/api/upload/resumable",{uploadId:upload.uploadId,pin:currentPin()}),{method:"DELETE"}).catch(()=>{});
+               upload.uploadId=null;
+               upload.received=0;
+             }
+           }else{
+             upload.status="error";
+             upload.error=err&&err.message?err.message:"Upload failed";
+           }
+           upload.speed=0;
+           renderUploadPanel();
+         }finally{
+           upload.chunkXhr=null;
+           upload.abortReason="";
+           renderUploadPanel();
+         }
+       }
+       async function uploadFile(){
+         const file=fileInputEl.files?.[0];
+         if(!file)return;
+         const sizeMb=file.size/(1024*1024);
+         if(sizeMb>state.uploadMaxSizeMb){alert("File exceeds "+state.uploadMaxSizeMb+" MB limit");fileInputEl.value="";uploadBtnEl.disabled=true;return;}
+         if(!state.uploadEnabled){alert("Uploads are disabled by host");return;}
+         const id=Math.random().toString(36).slice(2);
+         const upload={id,filename:file.name,size:file.size,received:0,status:"queued",error:null,speed:0,startTime:Date.now(),file,chunkXhr:null,uploadId:null,abortReason:""};
+         state.uploads.set(id,upload);
+         fileInputEl.value="";
+         uploadBtnEl.disabled=true;
+         renderUploadPanel();
+         startUpload(id);
        }
        function renderUploadPanel(){
          const items=Array.from(state.uploads.values());
@@ -448,9 +563,21 @@ export function renderHomePage(): string {
            const pct=u.size>0?Math.round((u.received/u.size)*100):0;
            const doneText=u.size>0?formatBytes(u.received)+" / "+formatBytes(u.size):formatBytes(u.received)+" / unknown";
            const statusText=u.status==="error"&&u.error?u.status+": "+u.error:u.status;
+           const actions=u.status==="uploading"
+             ?'<button class="secondary" data-action="pause" data-id="'+u.id+'">Pause</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
+             :(u.status==="paused"||u.status==="error"||u.status==="queued")
+               ?'<button data-action="start" data-id="'+u.id+'">Start</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
+               :'';
            row.innerHTML='<div class="download-top"><span class="download-name">'+u.filename+'</span><span class="download-status">'+statusText+'</span></div>'+
              '<div class="progress-bar-wrap"><div class="progress-bar" style="width:'+(u.status==="completed"?100:pct)+'%"></div></div>'+
-             '<div class="download-meta"><span>'+doneText+'</span><span>'+formatSpeed(u.speed)+'</span></div>';
+             '<div class="download-meta"><span>'+doneText+'</span><span>'+formatSpeed(u.speed)+'</span></div>'+
+             '<div class="download-actions">'+actions+'</div>';
+           const startBtn=row.querySelector('button[data-action="start"]');
+           const pauseBtn=row.querySelector('button[data-action="pause"]');
+           const cancelBtn=row.querySelector('button[data-action="cancel"]');
+           if(startBtn)startBtn.addEventListener("click",()=>startUpload(u.id));
+           if(pauseBtn)pauseBtn.addEventListener("click",()=>pauseUpload(u.id));
+           if(cancelBtn)cancelBtn.addEventListener("click",()=>cancelUpload(u.id));
            uploadItemsEl.appendChild(row);
          });
        }
@@ -561,6 +688,8 @@ export function renderAdminUI(): string {
       .controls { display:flex; gap:8px; align-items:center; margin:0 0 14px; flex-wrap:wrap; }
       .host-row { display:grid; grid-template-columns:1fr auto; gap:10px; margin:0 0 10px; }
       .host-label { display:block; margin:2px 0 6px; color:var(--muted); font-size:12px; }
+      .mode-toggle { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
+      .mode-toggle input { width:auto; margin:0; }
       input,select,button { border:1px solid var(--line); border-radius:10px; padding:9px 13px; font-size:14px; font-family:inherit; color:var(--text); background:var(--surface); }
       button { background:var(--accent); border-color:var(--accent); color:#fff; cursor:pointer; white-space:nowrap; }
       button:hover { filter:brightness(0.93); }
@@ -591,6 +720,19 @@ export function renderAdminUI(): string {
         <label for="shareRootPath" class="host-label" style="grid-column:1/-1">Shared directory path</label>
         <input id="shareRootPath" type="text" placeholder="Absolute directory path to share" autocomplete="off" />
         <button id="pickShareRoot" class="secondary">Choose Directory</button>
+      </div>
+      <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+        <h2 style="margin:0 0 12px;font-size:16px;">Upload Configuration</h2>
+        <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Control whether clients can upload files and set the maximum upload size.</p>
+        <div style="margin:0 0 10px;">
+          <label class="mode-toggle"><input id="uploadEnabled" type="checkbox" /> Allow client uploads</label>
+        </div>
+        <div class="host-row">
+          <label for="uploadMaxSizeMb" class="host-label" style="grid-column:1/-1">Maximum upload size (MB)</label>
+          <input id="uploadMaxSizeMb" type="number" min="1" max="51200" step="1" placeholder="e.g., 51200" />
+          <button id="saveTransfer" class="secondary">Save Upload Settings</button>
+        </div>
+        <p id="transferStatus" style="margin:8px 0 0;color:var(--muted);font-size:12px;"></p>
       </div>
       <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
         <h2 style="margin:0 0 12px;font-size:16px;">Client Access</h2>
@@ -626,6 +768,8 @@ export function renderAdminUI(): string {
             stopSharingEl=document.getElementById("stopSharing"),shareRootPathEl=document.getElementById("shareRootPath"),
             pickShareRootEl=document.getElementById("pickShareRoot"),warningEl=document.getElementById("warning"),
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
+        uploadEnabledEl=document.getElementById("uploadEnabled"),uploadMaxSizeMbEl=document.getElementById("uploadMaxSizeMb"),
+        saveTransferEl=document.getElementById("saveTransfer"),transferStatusEl=document.getElementById("transferStatus"),
             openClientUIEl=document.getElementById("openClientUI"),domainNameEl=document.getElementById("domainName"),
             saveDomainEl=document.getElementById("saveDomain"),domainStatusEl=document.getElementById("domainStatus"),
             healthDomainEl=document.getElementById("healthDomain"),healthUrlsEl=document.getElementById("healthUrls"),healthWarningsEl=document.getElementById("healthWarnings");
@@ -634,9 +778,38 @@ export function renderAdminUI(): string {
       function renderHostSummary(s){const started=s.lastStartedAt?new Date(s.lastStartedAt).toLocaleTimeString():"—";sharingStateEl.textContent=s.sharingActive?"Active (started "+started+")":"Stopped";hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No IPv4 detected";state.sharingActive=Boolean(s.sharingActive);startSharingEl.hidden=state.sharingActive;stopSharingEl.hidden=!state.sharingActive;}
       async function loadQr(){try{const r=await fetch("/api/qr");if(!r.ok)return;const{dataUrl}=await r.json();qrImgEl.src=dataUrl;qrBoxEl.style.visibility="visible";}catch{}}
       async function loadStatus(){const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status failed");const s=await r.json();renderWarning(s);renderHostSummary(s);if(s.roots&&s.roots[0])shareRootPathEl.value=s.roots[0].absPath;}
+      async function loadTransferSettings(){
+        try{
+          const r=await fetch("/api/host/transfer");
+          if(!r.ok)throw new Error("Transfer settings failed");
+          const data=await r.json();
+          uploadEnabledEl.checked=Boolean(data.uploadEnabled);
+          uploadMaxSizeMbEl.value=String(data.uploadMaxSizeMb||51200);
+        }catch{
+          transferStatusEl.textContent="Failed to load upload settings.";
+        }
+      }
       async function sendHostControl(action){const r=await fetch(apiUrl("/api/host/"+action),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
       async function applySharedDirectory(){const absPath=shareRootPathEl.value.trim();if(!absPath){alert("Enter a path");return;}const r=await fetch(apiUrl("/api/host/share-root"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({absPath})});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
       async function pickSharedDirectory(){const r=await fetch(apiUrl("/api/host/pick-share-root"),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}const payload=await r.json();if(payload&&payload.absPath)shareRootPathEl.value=payload.absPath;await loadStatus();}
+      async function saveTransferSettings(){
+        const maxSizeMb=Number(uploadMaxSizeMbEl.value);
+        if(!Number.isFinite(maxSizeMb)||maxSizeMb<1||maxSizeMb>51200){
+          transferStatusEl.textContent="Max upload size must be between 1 and 51200 MB.";
+          return;
+        }
+        const payload={uploadEnabled:Boolean(uploadEnabledEl.checked),uploadMaxSizeMb:Math.round(maxSizeMb)};
+        const r=await fetch("/api/host/transfer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+        if(!r.ok){
+          const e=await r.json().catch(()=>({error:"Failed"}));
+          transferStatusEl.textContent=e.error||"Failed to save upload settings.";
+          return;
+        }
+        const data=await r.json();
+        uploadEnabledEl.checked=Boolean(data.uploadEnabled);
+        uploadMaxSizeMbEl.value=String(data.uploadMaxSizeMb||51200);
+        transferStatusEl.textContent="Upload settings saved.";
+      }
       async function loadDomainName(){try{const r=await fetch("/api/host/domain-name");if(!r.ok)return;const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"Domain: "+data.domainName:"Suggested: "+data.suggested;}catch{}}
       function renderDiscoveryHealth(data){
         healthDomainEl.textContent=data.domainName||"No custom domain configured";
@@ -683,9 +856,11 @@ export function renderAdminUI(): string {
       shareRootPathEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")applySharedDirectory();});
       saveDomainEl.addEventListener("click",saveDomainName);
       domainNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveDomainName();});
-      refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadDiscoveryHealth();});
+      saveTransferEl.addEventListener("click",saveTransferSettings);
+      uploadMaxSizeMbEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveTransferSettings();});
+      refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadTransferSettings();await loadDiscoveryHealth();});
       openClientUIEl.addEventListener("click",()=>window.location.href="/");
-      (async()=>{await loadStatus();loadQr();await loadDomainName();await loadDiscoveryHealth();})();
+      (async()=>{await loadStatus();await loadTransferSettings();loadQr();await loadDomainName();await loadDiscoveryHealth();})();
     </script>
   </body>
 </html>`;

@@ -9,6 +9,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -40,6 +41,17 @@ const HTTP_STATUS = {
 
 const execFileAsync = promisify(execFile);
 
+type ResumableUploadSession = {
+  readonly uploadId: string;
+  readonly filename: string;
+  readonly rootId: string;
+  readonly relPath: string;
+  readonly totalSize: number;
+  readonly tempFilePath: string;
+  receivedBytes: number;
+  createdAt: number;
+};
+
 interface AppContext {
   readonly app: express.Express;
   readonly sessionState: HostSessionPort;
@@ -65,6 +77,9 @@ export function createApp(
   onDomainNameChanged?: (domainName: string | undefined) => void,
 ): AppContext {
   const app = express();
+  const resumableUploads = new Map<string, ResumableUploadSession>();
+  const uploadTmpDir = path.join(os.tmpdir(), 'lan-file-host-uploads');
+  const CHUNK_UPLOAD_LIMIT_BYTES = 8 * 1024 * 1024;
 
   app.use(cors());
   app.use(express.json());
@@ -701,6 +716,195 @@ export function createApp(
         uploadedAt: new Date().toISOString(),
       },
     });
+  });
+
+  /**
+   * POST /api/upload/resumable/init - Initialize resumable upload session
+   */
+  app.post('/api/upload/resumable/init', requirePin, async (req, res) => {
+    if (!sessionState.isUploadEnabled()) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Uploads are disabled by host',
+        code: 'UPLOAD_DISABLED',
+      });
+      return;
+    }
+
+    const filename = path.basename(String(req.body?.filename || '').trim());
+    const totalSize = Number(req.body?.size);
+    const rootId = String(req.body?.root || req.query.root || '0');
+    const relPath = String(req.body?.path || req.query.path || '');
+
+    if (!filename) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'filename is required', code: 'INVALID_FILENAME' });
+      return;
+    }
+    if (!Number.isFinite(totalSize) || totalSize <= 0) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'size must be a positive number', code: 'INVALID_SIZE' });
+      return;
+    }
+
+    const maxSizeBytes = sessionState.getMaxUploadSizeMb() * 1024 * 1024;
+    if (totalSize > maxSizeBytes) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: `File exceeds maximum size of ${sessionState.getMaxUploadSizeMb()} MB`,
+        code: 'FILE_TOO_LARGE',
+      });
+      return;
+    }
+
+    await fsp.mkdir(uploadTmpDir, { recursive: true });
+    const uploadId = randomUUID();
+    const tempFilePath = path.join(uploadTmpDir, `${uploadId}.part`);
+    await fsp.writeFile(tempFilePath, Buffer.alloc(0));
+
+    resumableUploads.set(uploadId, {
+      uploadId,
+      filename,
+      rootId,
+      relPath,
+      totalSize,
+      tempFilePath,
+      receivedBytes: 0,
+      createdAt: Date.now(),
+    });
+
+    res.status(200).json({ uploadId, receivedBytes: 0, totalSize });
+  });
+
+  /**
+   * GET /api/upload/resumable/status - Get resumable upload progress
+   */
+  app.get('/api/upload/resumable/status', requirePin, (req, res) => {
+    const uploadId = String(req.query.uploadId || '');
+    const session = resumableUploads.get(uploadId);
+    if (!session) {
+      res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Upload session not found', code: 'UPLOAD_SESSION_NOT_FOUND' });
+      return;
+    }
+
+    res.status(200).json({
+      uploadId: session.uploadId,
+      receivedBytes: session.receivedBytes,
+      totalSize: session.totalSize,
+      done: session.receivedBytes >= session.totalSize,
+    });
+  });
+
+  /**
+   * POST /api/upload/resumable/chunk - Append a binary chunk
+   */
+  app.post('/api/upload/resumable/chunk', requirePin, express.raw({ type: 'application/octet-stream', limit: CHUNK_UPLOAD_LIMIT_BYTES }), async (req, res) => {
+    const uploadId = String(req.query.uploadId || '');
+    const offset = Number(req.query.offset);
+    const session = resumableUploads.get(uploadId);
+    if (!session) {
+      res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Upload session not found', code: 'UPLOAD_SESSION_NOT_FOUND' });
+      return;
+    }
+
+    if (!Number.isFinite(offset) || offset < 0) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'offset must be a non-negative number', code: 'INVALID_OFFSET' });
+      return;
+    }
+
+    if (offset !== session.receivedBytes) {
+      res.status(409).json({
+        error: 'Offset mismatch',
+        code: 'OFFSET_MISMATCH',
+        expectedOffset: session.receivedBytes,
+      });
+      return;
+    }
+
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (!body.length) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Chunk body is required', code: 'EMPTY_CHUNK' });
+      return;
+    }
+
+    if (session.receivedBytes + body.length > session.totalSize) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Chunk exceeds declared file size', code: 'CHUNK_OVERFLOW' });
+      return;
+    }
+
+    await fsp.appendFile(session.tempFilePath, body);
+    session.receivedBytes += body.length;
+
+    res.status(200).json({
+      uploadId: session.uploadId,
+      receivedBytes: session.receivedBytes,
+      totalSize: session.totalSize,
+      done: session.receivedBytes >= session.totalSize,
+    });
+  });
+
+  /**
+   * POST /api/upload/resumable/complete - Finalize resumable upload
+   */
+  app.post('/api/upload/resumable/complete', requirePin, async (req, res) => {
+    const uploadId = String(req.query.uploadId || req.body?.uploadId || '');
+    const session = resumableUploads.get(uploadId);
+    if (!session) {
+      res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Upload session not found', code: 'UPLOAD_SESSION_NOT_FOUND' });
+      return;
+    }
+
+    if (session.receivedBytes !== session.totalSize) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: 'Upload is incomplete',
+        code: 'UPLOAD_INCOMPLETE',
+        receivedBytes: session.receivedBytes,
+        totalSize: session.totalSize,
+      });
+      return;
+    }
+
+    const dataBuffer = await fsp.readFile(session.tempFilePath);
+    const saveResult = await uploadFileUseCase.execute(session.rootId, session.relPath, session.filename, dataBuffer);
+    if (!saveResult.ok) {
+      const error = saveResult.error;
+      const statusCode = isDomainError(error) ? error.statusCode : HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      res.status(statusCode).json({ error: error.message, code: error.code });
+      return;
+    }
+
+    try {
+      await fsp.unlink(session.tempFilePath);
+    } catch {
+      // best effort cleanup
+    }
+    resumableUploads.delete(uploadId);
+
+    res.status(200).json({
+      success: true,
+      file: {
+        relPath: saveResult.value.relPath,
+        size: session.totalSize,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+  });
+
+  /**
+   * DELETE /api/upload/resumable - Cancel and cleanup resumable upload session
+   */
+  app.delete('/api/upload/resumable', requirePin, async (req, res) => {
+    const uploadId = String(req.query.uploadId || req.body?.uploadId || '');
+    const session = resumableUploads.get(uploadId);
+    if (!session) {
+      res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Upload session not found', code: 'UPLOAD_SESSION_NOT_FOUND' });
+      return;
+    }
+
+    resumableUploads.delete(uploadId);
+    try {
+      await fsp.unlink(session.tempFilePath);
+    } catch {
+      // best effort cleanup
+    }
+
+    res.status(200).json({ success: true });
   });
 
   return { app, sessionState };
