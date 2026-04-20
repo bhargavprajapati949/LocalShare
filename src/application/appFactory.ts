@@ -78,14 +78,15 @@ export function createApp(
     const lanAddresses = getLanIPv4Candidates();
     const snapshot = sessionState.getSnapshot();
     const domainName = (sessionState.getDomainName() || config.customDomainName || getDefaultMdnsDomainName()).trim().toLowerCase();
+    const effectivePin = sessionState.getSessionPin() ?? config.sessionPin;
 
     return {
       appName: 'LAN File Host',
       version: '1.0.0',
       host: config.host,
       port: config.port,
-      requiresPin: Boolean(config.sessionPin),
-      securityMode: config.sessionPin ? 'pin-protected' : 'open-local-network',
+      requiresPin: Boolean(effectivePin),
+      securityMode: effectivePin ? 'pin-protected' : 'open-local-network',
       roots: config.roots,
       lanAddresses,
       lanUrls: lanAddresses.map((ip) => `http://${ip}:${config.port}`),
@@ -96,6 +97,8 @@ export function createApp(
       lastStoppedAt: snapshot.lastStoppedAt,
       domainName,
       mdnsEnabled: config.mdnsEnabled,
+      uploadEnabled: sessionState.isUploadEnabled(),
+      uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
     };
   }
 
@@ -149,13 +152,14 @@ export function createApp(
    * Middleware: Check PIN if configured
    */
   function requirePin(_req: Request, res: Response, next: NextFunction): void {
-    if (!config.sessionPin) {
+    const effectivePin = sessionState.getSessionPin() ?? config.sessionPin;
+    if (!effectivePin) {
       next();
       return;
     }
 
     const suppliedPin = String(_req.headers['x-session-pin'] || _req.query.pin || '').trim();
-    if (suppliedPin !== config.sessionPin) {
+    if (suppliedPin !== effectivePin) {
       res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'PIN required or invalid PIN' });
       return;
     }
@@ -179,10 +183,11 @@ export function createApp(
 
   /**
    * Multer middleware for file uploads
+   * Uses a high limit and checks sessionState for actual limit
    */
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
+    limits: { fileSize: 51200 * 1024 * 1024 }, // 51200 MB (50 GB, we check sessionState limit at route)
   });
 
   // ============ Routes ============
@@ -260,6 +265,83 @@ export function createApp(
     res.json({
       message: 'Sharing stopped',
       ...snapshot,
+    });
+  });
+
+  /**
+   * GET /api/host/access - Access control state (localhost only)
+   */
+  app.get('/api/host/access', requireLocalControl, (_req, res) => {
+    const runtimePin = sessionState.getSessionPin();
+    const envPin = config.sessionPin;
+    const effectivePin = runtimePin ?? envPin;
+    res.json({
+      requiresPin: Boolean(effectivePin),
+      pinSource: runtimePin ? 'runtime' : envPin ? 'env' : 'none',
+    });
+  });
+
+  /**
+   * POST /api/host/access/pin - Set or clear runtime PIN (localhost only)
+   */
+  app.post('/api/host/access/pin', requireLocalControl, (req, res) => {
+    const rawPin = String(req.body?.pin || '').trim();
+    if (rawPin && !/^\d{4,16}$/.test(rawPin)) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: 'PIN must be 4-16 digits',
+        code: 'INVALID_PIN',
+      });
+      return;
+    }
+
+    sessionState.setSessionPin(rawPin || undefined);
+    const effectivePin = sessionState.getSessionPin() ?? config.sessionPin;
+    res.json({
+      message: rawPin ? 'Runtime PIN set' : 'Runtime PIN cleared',
+      requiresPin: Boolean(effectivePin),
+      pinSource: sessionState.getSessionPin() ? 'runtime' : config.sessionPin ? 'env' : 'none',
+    });
+  });
+
+  /**
+   * GET /api/host/transfer - Transfer control state (localhost only)
+   */
+  app.get('/api/host/transfer', requireLocalControl, (_req, res) => {
+    res.json({
+      uploadEnabled: sessionState.isUploadEnabled(),
+      uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
+    });
+  });
+
+  /**
+   * POST /api/host/transfer - Update transfer controls (localhost only)
+   */
+  app.post('/api/host/transfer', requireLocalControl, (req, res) => {
+    const body = req.body || {};
+    let updated = false;
+
+    if (typeof body.uploadEnabled === 'boolean') {
+      sessionState.setUploadEnabled(body.uploadEnabled);
+      updated = true;
+    }
+
+    if (typeof body.uploadMaxSizeMb === 'number') {
+      sessionState.setMaxUploadSizeMb(body.uploadMaxSizeMb);
+      updated = true;
+    }
+
+    if (!updated) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: 'uploadEnabled(boolean) or uploadMaxSizeMb(number) is required',
+        code: 'INVALID_TRANSFER_CONFIG',
+      });
+      return;
+    }
+
+    res.json({
+      message: 'Transfer settings updated',
+      uploadEnabled: sessionState.isUploadEnabled(),
+      uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
     });
   });
 
@@ -565,11 +647,31 @@ export function createApp(
    * POST /api/upload - Upload a file to a directory
    */
   app.post('/api/upload', requirePin, upload.single('file'), async (req, res) => {
+    if (!sessionState.isUploadEnabled()) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Uploads are disabled by host',
+        code: 'UPLOAD_DISABLED',
+      });
+      return;
+    }
+
     const file = (req as any).file;
     if (!file) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: 'No file provided',
         code: 'NO_FILE',
+      });
+      return;
+    }
+
+    const maxSizeMb = sessionState.getMaxUploadSizeMb();
+    const maxSizeBytes = maxSizeMb * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: `File exceeds maximum size of ${maxSizeMb} MB`,
+        code: 'FILE_TOO_LARGE',
+        maxSizeMb,
+        fileSizeMb: Math.round(file.size / 1024 / 1024),
       });
       return;
     }

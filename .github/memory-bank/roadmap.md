@@ -12,7 +12,7 @@ Status values:
 - Select shared root folders - done
 - Host status and open-mode warning - done
 - Separate host admin UI and client access UI - done
-- Host admin controls for session, access, and transfer management - inprogress
+- Host admin controls for session, access, and transfer management - done
 
 ### Downloading
 - File download - done
@@ -57,4 +57,4 @@ Status values:
 - Extensibility and automation - todo
 
 ## Bugs
-- Local domain name seems not working - todo
+- Android mDNS (.local) resolution unreliable on same LAN/hotspot - todo

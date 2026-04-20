@@ -151,4 +151,36 @@ export interface HostSessionPort {
    * @param domainName - New domain name or undefined to clear
    */
   setDomainName(domainName: string | undefined): void;
+
+  /**
+   * Get runtime session PIN override
+   * @returns PIN or undefined if not required
+   */
+  getSessionPin(): string | undefined;
+
+  /**
+   * Set runtime session PIN override
+   * @param pin - PIN or undefined to clear
+   */
+  setSessionPin(pin: string | undefined): void;
+
+  /**
+   * Check whether uploads are enabled for clients
+   */
+  isUploadEnabled(): boolean;
+
+  /**
+   * Enable or disable client uploads
+   */
+  setUploadEnabled(enabled: boolean): void;
+
+  /**
+   * Get maximum upload file size in MB
+   */
+  getMaxUploadSizeMb(): number;
+
+  /**
+   * Set maximum upload file size in MB (1-2048 MB)
+   */
+  setMaxUploadSizeMb(sizeMb: number): void;
 }

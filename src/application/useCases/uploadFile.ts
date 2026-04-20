@@ -41,9 +41,9 @@ export class UploadFileUseCase {
     }
 
     // Validate file size (max 100 MB)
-    const MAX_FILE_SIZE = 100 * 1024 * 1024;
+      const MAX_FILE_SIZE = 51200 * 1024 * 1024;
     if (fileData.length > MAX_FILE_SIZE) {
-      return err(new DomainError('FILE_TOO_LARGE', 'File size exceeds maximum limit (100 MB)'));
+        return err(new DomainError('FILE_TOO_LARGE', 'File size exceeds maximum limit (51200 MB)'));
     }
 
     // Resolve target directory

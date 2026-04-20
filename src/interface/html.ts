@@ -132,19 +132,28 @@ export function renderHomePage(): string {
       </div>
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="list" id="list"></div>
+           <section class="download-panel">
+             <h3>Uploads</h3>
+             <div style="margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+               <input id="fileInput" type="file" style="flex:1;" />
+               <button id="uploadBtn" class="secondary">📤 Upload</button>
+             </div>
+             <div id="uploadItems" class="download-empty">No uploads yet.</div>
+           </section>
       <section class="download-panel">
         <h3>Downloads</h3>
         <div id="downloadItems" class="download-empty">No downloads yet.</div>
       </section>
     </section>
     <script>
-      const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[],downloadMode:localStorage.getItem("lan_download_mode")==="browser"?"browser":"managed",downloads:new Map()};
+      const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[],downloadMode:localStorage.getItem("lan_download_mode")==="browser"?"browser":"managed",downloads:new Map(),uploads:new Map(),uploadMaxSizeMb:51200,uploadEnabled:false};
       const listEl=document.getElementById("list"),rootEl=document.getElementById("root"),breadcrumbEl=document.getElementById("breadcrumb"),
             pinInputEl=document.getElementById("pinInput"),refreshEl=document.getElementById("refresh"),
             warningEl=document.getElementById("warning"),sharingStateEl=document.getElementById("sharingState"),
             hostIpsEl=document.getElementById("hostIps"),refreshStatusEl=document.getElementById("refreshStatus"),
             startSharingEl=document.getElementById("startSharing"),stopSharingEl=document.getElementById("stopSharing"),
         downloadModeToggleEl=document.getElementById("downloadModeToggle"),downloadItemsEl=document.getElementById("downloadItems"),
+           fileInputEl=document.getElementById("fileInput"),uploadBtnEl=document.getElementById("uploadBtn"),uploadItemsEl=document.getElementById("uploadItems"),
             hostRootRowEl=document.getElementById("hostRootRow"),shareRootPathEl=document.getElementById("shareRootPath"),
             pickShareRootEl=document.getElementById("pickShareRoot"),
             rootLabelEl=document.getElementById("rootLabel"),
@@ -394,6 +403,56 @@ export function renderHomePage(): string {
         if(state.downloadMode==="browser"){triggerBrowserManagedDownloadDirectory(relPath);return;}
         await startManagedDownloadDirectory(relPath);
       }
+       function handleFileSelect(e){
+         const file=e.target.files?.[0];
+         if(!file)return;
+         const sizeMb=file.size/(1024*1024);
+         if(sizeMb>state.uploadMaxSizeMb){alert("File exceeds "+state.uploadMaxSizeMb+" MB limit");fileInputEl.value="";return;}
+         uploadBtnEl.disabled=false;
+       }
+       async function uploadFile(){
+         const file=fileInputEl.files?.[0];
+         if(!file)return;
+         const id=Math.random().toString(36).slice(2);
+         const upload={id,filename:file.name,size:file.size,received:0,status:"uploading",error:null,speed:0,startTime:Date.now()};
+         state.uploads.set(id,upload);renderUploadPanel();
+         const formData=new FormData();formData.append("file",file);formData.append("pin",state.pin);
+         try{
+           const xhr=new XMLHttpRequest();
+           xhr.upload.addEventListener("progress",(e)=>{
+             if(e.lengthComputable){
+               upload.received=e.loaded;
+               const elapsedMs=Date.now()-upload.startTime;
+               upload.speed=elapsedMs>0?e.loaded/(elapsedMs/1000):0;
+               renderUploadPanel();
+             }
+           });
+           xhr.addEventListener("load",()=>{
+             if(xhr.status===200||xhr.status===201){upload.status="completed";}
+             else{upload.status="error";upload.error="HTTP "+xhr.status;}
+             renderUploadPanel();
+           });
+           xhr.addEventListener("error",()=>{upload.status="error";upload.error="Network error";renderUploadPanel();});
+           xhr.open("POST",apiUrl("/api/upload"));
+           xhr.send(formData);
+         }catch(err){upload.status="error";upload.error=err.message;renderUploadPanel();}
+         fileInputEl.value="";uploadBtnEl.disabled=true;
+       }
+       function renderUploadPanel(){
+         const items=Array.from(state.uploads.values());
+         if(!items.length){uploadItemsEl.className="download-empty";uploadItemsEl.innerHTML="No uploads yet.";return;}
+         uploadItemsEl.className="";uploadItemsEl.innerHTML="";
+         items.forEach((u)=>{
+           const row=document.createElement("div");row.className="download-item";
+           const pct=u.size>0?Math.round((u.received/u.size)*100):0;
+           const doneText=u.size>0?formatBytes(u.received)+" / "+formatBytes(u.size):formatBytes(u.received)+" / unknown";
+           const statusText=u.status==="error"&&u.error?u.status+": "+u.error:u.status;
+           row.innerHTML='<div class="download-top"><span class="download-name">'+u.filename+'</span><span class="download-status">'+statusText+'</span></div>'+
+             '<div class="progress-bar-wrap"><div class="progress-bar" style="width:'+(u.status==="completed"?100:pct)+'%"></div></div>'+
+             '<div class="download-meta"><span>'+doneText+'</span><span>'+formatSpeed(u.speed)+'</span></div>';
+           uploadItemsEl.appendChild(row);
+         });
+       }
       async function loadDirectory(){
         if(!state.sharingActive){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Sharing is stopped. Start sharing to browse.</span></div>';breadcrumbEl.innerHTML="";return;}
         state.pin=pinInputEl.value.trim()||storedPin();
@@ -454,7 +513,9 @@ export function renderHomePage(): string {
       pickShareRootEl.addEventListener("click",pickSharedDirectory);
       shareRootPathEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")applySharedDirectory();});
       downloadModeToggleEl.addEventListener("change",()=>setDownloadMode(downloadModeToggleEl.checked?"browser":"managed"));
-      (async()=>{setDownloadMode(state.downloadMode);renderDownloadPanel();await loadStatus();loadQr();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();
+      fileInputEl.addEventListener("change",handleFileSelect);
+      uploadBtnEl.addEventListener("click",uploadFile);
+      (async()=>{setDownloadMode(state.downloadMode);renderDownloadPanel();renderUploadPanel();await loadStatus();loadQr();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();
     </script>
   </body>
 </html>`;

@@ -25,6 +25,9 @@ export class HostSessionState implements HostSessionPort {
   private lastStartedAt = new Date().toISOString();
   private lastStoppedAt?: string;
   private customDomainName?: string;
+  private sessionPin?: string;
+  private uploadEnabled = true;
+    private maxUploadSizeMb = 51200;
 
   /**
    * Start sharing (idempotent)
@@ -86,6 +89,49 @@ export class HostSessionState implements HostSessionPort {
    */
   public setDomainName(domainName: string | undefined): void {
     this.customDomainName = domainName?.trim() || undefined;
+  }
+
+  /**
+   * Get runtime session PIN override
+   */
+  public getSessionPin(): string | undefined {
+    return this.sessionPin;
+  }
+
+  /**
+   * Set runtime session PIN override
+   */
+  public setSessionPin(pin: string | undefined): void {
+    this.sessionPin = pin?.trim() || undefined;
+  }
+
+  /**
+   * Check if uploads are currently enabled
+   */
+  public isUploadEnabled(): boolean {
+    return this.uploadEnabled;
+  }
+
+  /**
+   * Toggle upload availability
+   */
+  public setUploadEnabled(enabled: boolean): void {
+    this.uploadEnabled = Boolean(enabled);
+  }
+
+  /**
+   * Get maximum upload file size in MB
+   */
+  public getMaxUploadSizeMb(): number {
+    return this.maxUploadSizeMb;
+  }
+
+  /**
+   * Set maximum upload file size in MB
+   */
+     public setMaxUploadSizeMb(sizeMb: number): void {
+       const size = Math.max(1, Math.min(51200, Number(sizeMb) || 100));
+    this.maxUploadSizeMb = size;
   }
 }
 
