@@ -5,9 +5,8 @@ Persistent project context for decisions, standards, and execution. Single sourc
 ## File Organization
 
 ### Product & Planning
-- **productContext.md**: Problem, value, target user, scope boundaries.
-- **roadmap.md**: Feature phases (v0 → v3); current active phase.
-- **decision-log.md**: Architecture/product decisions with rationale and impact.
+- **product-context.md**: Problem, value, target user, scope boundaries.
+- **roadmap.md**: Feature and bug tracker with status labels.
 
 ### Engineering Standards
 - **techContext.md**: Stack, architecture, APIs, env vars.
@@ -18,11 +17,15 @@ Persistent project context for decisions, standards, and execution. Single sourc
 - **developmentGuide.md**: Quick start, workflow, common tasks, checklists.
 
 ## Usage Rules
-1. **productContext.md**: Update only when core goals/scope change.
-2. **decision-log.md**: Add entry for each architectural or significant product choice.
-3. **roadmap.md**: Keep aligned with active sprint/phase.
-4. **Standards files**: Reference during code review and PR; update when standard evolves.
-5. **developmentGuide.md**: Link in onboarding; keep as quick reference.
+1. **product-context.md**: Update only when core goals/scope change.
+2. **roadmap.md**: Keep statuses current (`todo`, `inprogress`, `working`).
+3. **Standards files**: Reference during code review and PR; update when standard evolves.
+4. **developmentGuide.md**: Link in onboarding; keep as quick reference.
+
+## Tool Compatibility
+- **Copilot** reads repository instructions from `.github/copilot-instructions.md`.
+- **Claude CLI** reads repository instructions from `CLAUDE.md`.
+- Both instruction files point to this same memory bank to avoid drift.
 
 ## Key Principles
 - **Conciseness**: No filler; every line earns its place.
