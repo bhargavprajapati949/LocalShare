@@ -1,37 +1,60 @@
 # Roadmap
 
-## Active Phase
-v1
+Status values:
+- todo: Not started
+- inprogress: Being implemented
+- done: Implemented and usable
 
-## v0 - Core Transfer Loop ✓
-- Start/stop host server
-- Select shared root folders
-- Browser directory listing
-- File download
-- Path traversal protection
-- Host status + open-mode warning
+## Features
 
-## v1 - MVP Beta ✓
-- QR share
-- mDNS discovery
-- Better UI + progress
-- Session PIN
-- Multi-platform packaging quality
+### Hosting and Session
+- Start/stop host server - done
+- Select shared root folders - done
+- Host status and open-mode warning - done
+- Separate host admin UI and client access UI - done
+- Host admin controls for session, access, and transfer management - inprogress
 
-## v2 - Collaboration and Access
-- Separate host admin UI and client access UI
-- Host admin controls for session, access, and transfer management
-- Directory download support (archive as ZIP)
-- Upload support for files and directories to host
-- Host-configured custom local domain name for LAN access
-- Local domain resolution so devices can open server via hostname instead of raw IP
+### Downloading
+- File download - done
+- Directory download (ZIP archive) - done
+- Add pause/start/cancel controls for downloads - todo
+- Allow directory download even when host free disk is low by streaming archive generation - done
+- Parallel chunk downloading for faster transfers - todo
 
-## v3 - Security and Productivity
-- Trusted devices
-- Read/write policies
-- Logs and session control
+### Uploading
+- Upload files to host - done
+- Upload directories to host - todo
 
-## v4 - Power User
-- CLI mode
-- WebDAV mode
-- Extensibility and automation
+### File Browsing
+- Browser directory listing - done
+- Add sortable file list headers (name/size/date asc/desc) - todo
+- Create directory from UI - todo
+- Delete file or directory from UI - todo
+- Admin permission toggle for modify access - todo
+- Admin permission toggle for delete access - todo
+
+### Discovery and Connectivity
+- QR share - done
+- mDNS discovery - done
+- Host-configured custom local domain name for LAN access - done
+- Local domain resolution so clients can use hostname instead of raw IP - done
+
+### Security and Access
+- Session PIN support - todo
+- Session PIN behavior documentation (how current implementation works) - todo
+- Remove client UI controls that should be host-only (shared roots, PIN settings) - todo
+- Read/write policies - todo
+- Trusted devices - todo
+- Logs and session control - todo
+
+### Distribution
+- Multi-platform packaging quality - done
+- Distribution strategy and install/run flow across platforms - todo
+
+### Power User and Extensibility
+- CLI mode - todo
+- WebDAV mode - todo
+- Extensibility and automation - todo
+
+## Bugs
+- Local domain name seems not working - todo

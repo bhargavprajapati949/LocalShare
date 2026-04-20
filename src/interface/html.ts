@@ -37,6 +37,16 @@ export function renderHomePage(): string {
       .mode-toggle input { width:auto; margin:0; }
       .host-row { display:grid; grid-template-columns:1fr auto; gap:10px; margin:0 0 10px; }
       .host-label { display:block; margin:2px 0 6px; color:var(--muted); font-size:12px; }
+      .health-box { border:1px solid var(--line); border-radius:10px; padding:12px; background:#fafcff; }
+      .health-box h3 { margin:0 0 8px; font-size:14px; }
+      .health-box .mono { font-family:"Menlo","Consolas",monospace; font-size:12px; white-space:pre-wrap; }
+      .health-links { display:grid; gap:8px; }
+      .health-link-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; }
+      .health-link { color:var(--accent); text-decoration:none; overflow-wrap:anywhere; }
+      .health-link:hover { text-decoration:underline; }
+      .health-copy { padding:6px 10px; font-size:12px; }
+      .health-list { margin:0; padding-left:16px; color:var(--muted); font-size:12px; }
+      .health-list li { margin:4px 0; }
       .browse-row { display:grid; grid-template-columns:minmax(140px,auto) 1fr auto; gap:10px; margin:0 0 10px; }
       .root-label { border:1px solid var(--line); border-radius:10px; padding:9px 13px; background:#f8fbff; color:var(--muted); font-size:13px; }
       .download-panel { margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
@@ -535,6 +545,17 @@ export function renderAdminUI(): string {
         </div>
         <p id="domainStatus" style="margin:8px 0 0;color:var(--muted);font-size:12px;"></p>
       </div>
+      <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+        <h2 style="margin:0 0 12px;font-size:16px;">Discovery Health</h2>
+        <div class="health-box">
+          <h3>Configured Domain</h3>
+          <p id="healthDomain" class="mono" style="margin:0 0 10px;color:var(--text);">Loading...</p>
+          <h3>Client URLs</h3>
+          <p id="healthUrls" class="mono" style="margin:0 0 10px;color:var(--text);">Loading...</p>
+          <h3 style="margin-top:8px;">Network Warnings</h3>
+          <ul id="healthWarnings" class="health-list"><li>Loading...</li></ul>
+        </div>
+      </div>
     </section>
     <script>
       const state={sharingActive:true};
@@ -544,7 +565,8 @@ export function renderAdminUI(): string {
             pickShareRootEl=document.getElementById("pickShareRoot"),warningEl=document.getElementById("warning"),
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
             openClientUIEl=document.getElementById("openClientUI"),domainNameEl=document.getElementById("domainName"),
-            saveDomainEl=document.getElementById("saveDomain"),domainStatusEl=document.getElementById("domainStatus");
+            saveDomainEl=document.getElementById("saveDomain"),domainStatusEl=document.getElementById("domainStatus"),
+            healthDomainEl=document.getElementById("healthDomain"),healthUrlsEl=document.getElementById("healthUrls"),healthWarningsEl=document.getElementById("healthWarnings");
       function apiUrl(ep,p={}){const u=new URL(ep,window.location.origin);for(const[k,v]of Object.entries(p))if(v!=null&&v!=="")u.searchParams.set(k,String(v));return u;}
       function renderWarning(s){warningEl.className=s.securityMode==="open-local-network"?"banner":"banner safe";warningEl.textContent=s.securityMode==="open-local-network"?"⚠ PIN is disabled":"✓ PIN is active";}
       function renderHostSummary(s){const started=s.lastStartedAt?new Date(s.lastStartedAt).toLocaleTimeString():"—";sharingStateEl.textContent=s.sharingActive?"Active (started "+started+")":"Stopped";hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No IPv4 detected";state.sharingActive=Boolean(s.sharingActive);startSharingEl.hidden=state.sharingActive;stopSharingEl.hidden=!state.sharingActive;}
@@ -554,16 +576,54 @@ export function renderAdminUI(): string {
       async function applySharedDirectory(){const absPath=shareRootPathEl.value.trim();if(!absPath){alert("Enter a path");return;}const r=await fetch(apiUrl("/api/host/share-root"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({absPath})});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
       async function pickSharedDirectory(){const r=await fetch(apiUrl("/api/host/pick-share-root"),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}const payload=await r.json();if(payload&&payload.absPath)shareRootPathEl.value=payload.absPath;await loadStatus();}
       async function loadDomainName(){try{const r=await fetch("/api/host/domain-name");if(!r.ok)return;const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"Domain: "+data.domainName:"Suggested: "+data.suggested;}catch{}}
-      async function saveDomainName(){const domainName=domainNameEl.value.trim();const r=await fetch("/api/host/domain-name",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({domainName:domainName||undefined})});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"✓ Domain updated: "+data.domainName:"Suggested: "+data.suggested;}
+      function renderDiscoveryHealth(data){
+        healthDomainEl.textContent=data.domainName||"No custom domain configured";
+        const urls=Array.isArray(data.recommendedClientUrls)?data.recommendedClientUrls:[];
+        healthUrlsEl.innerHTML="";
+        if(urls.length){
+          urls.forEach((url)=>{
+            const row=document.createElement("div");
+            row.className="health-link-row";
+            const link=document.createElement("a");
+            link.className="health-link";
+            link.href=url;
+            link.target="_blank";
+            link.rel="noreferrer";
+            link.textContent=url;
+            const copyBtn=document.createElement("button");
+            copyBtn.className="secondary health-copy";
+            copyBtn.type="button";
+            copyBtn.textContent="Copy";
+            copyBtn.addEventListener("click",async()=>{
+              try{await navigator.clipboard.writeText(url);copyBtn.textContent="Copied";setTimeout(()=>{copyBtn.textContent="Copy";},1200);}catch{copyBtn.textContent="Failed";setTimeout(()=>{copyBtn.textContent="Copy";},1200);}
+            });
+            row.appendChild(link);
+            row.appendChild(copyBtn);
+            healthUrlsEl.appendChild(row);
+          });
+        }else{
+          healthUrlsEl.textContent="No reachable LAN URLs detected.";
+        }
+        const warnings=Array.isArray(data.warnings)?data.warnings:[];
+        healthWarningsEl.innerHTML="";
+        if(!warnings.length){
+          const li=document.createElement("li");li.textContent="No obvious blockers detected from host-side checks.";healthWarningsEl.appendChild(li);return;
+        }
+        warnings.forEach((w)=>{const li=document.createElement("li");li.textContent=w;healthWarningsEl.appendChild(li);});
+      }
+      async function loadDiscoveryHealth(){
+        try{const r=await fetch("/api/discovery-health");if(!r.ok)throw new Error("health failed");const data=await r.json();renderDiscoveryHealth(data);}catch{healthDomainEl.textContent="Failed to load configured domain.";healthUrlsEl.textContent="Failed to load discovery diagnostics.";healthWarningsEl.innerHTML="<li>Check server logs and refresh.</li>";}
+      }
+      async function saveDomainName(){const domainName=domainNameEl.value.trim();const r=await fetch("/api/host/domain-name",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({domainName:domainName||undefined})});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"✓ Domain updated: "+data.domainName:"Suggested: "+data.suggested;await loadDiscoveryHealth();}
       startSharingEl.addEventListener("click",()=>sendHostControl("start"));
       stopSharingEl.addEventListener("click",()=>sendHostControl("stop"));
       pickShareRootEl.addEventListener("click",pickSharedDirectory);
       shareRootPathEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")applySharedDirectory();});
       saveDomainEl.addEventListener("click",saveDomainName);
       domainNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveDomainName();});
-      refreshStatusEl.addEventListener("click",async()=>loadStatus());
+      refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadDiscoveryHealth();});
       openClientUIEl.addEventListener("click",()=>window.location.href="/");
-      (async()=>{await loadStatus();loadQr();await loadDomainName();})();
+      (async()=>{await loadStatus();loadQr();await loadDomainName();await loadDiscoveryHealth();})();
     </script>
   </body>
 </html>`;

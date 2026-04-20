@@ -6,7 +6,7 @@
  */
 
 import Bonjour from 'bonjour-service';
-import { loadConfig, getLanIPv4Candidates } from './infrastructure/config';
+import { loadConfig, getDefaultMdnsDomainName, getLanIPv4Candidates } from './infrastructure/config';
 import { FileSystemAdapter } from './infrastructure/fileSystemAdapter';
 import { HostSessionState } from './domain/models/hostSession';
 import { ListFilesUseCase } from './application/useCases/listFiles';
@@ -34,8 +34,53 @@ function main(): void {
   const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
   const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
 
+  const bonjour = config.mdnsEnabled ? new Bonjour() : undefined;
+  let activeService: { stop?: CallableFunction } | undefined;
+
+  const republishMdns = (domainOverride?: string): void => {
+    if (!bonjour) {
+      return;
+    }
+
+    const domainName = (domainOverride || sessionState.getDomainName() || config.customDomainName || getDefaultMdnsDomainName()).toLowerCase();
+    const lanAddresses = getLanIPv4Candidates();
+
+    const previous = activeService;
+    const serviceConfig = {
+      name: 'LAN File Host',
+      type: 'http',
+      host: domainName,
+      port: config.port,
+      addresses: lanAddresses.length ? lanAddresses : undefined,
+      txt: {
+        path: '/',
+        description: 'LAN File Host',
+        domain: domainName,
+      },
+    } as unknown as Parameters<typeof bonjour.publish>[0];
+
+    activeService = bonjour.publish(serviceConfig);
+
+    if (previous?.stop) {
+      previous.stop(() => undefined);
+    }
+
+    console.log(`mDNS enabled - Access at: http://${domainName}:${config.port}`);
+    console.log('mDNS: advertising LAN File Host on local network');
+  };
+
   // Create Express app (injected with all dependencies)
-  const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
+  const { app } = createApp(
+    config,
+    sessionState,
+    listFilesUseCase,
+    downloadFileUseCase,
+    downloadDirectoryUseCase,
+    uploadFileUseCase,
+    (domainName) => {
+      republishMdns(domainName);
+    },
+  );
 
   // Start server
   const server = app.listen(config.port, config.host, () => {
@@ -61,36 +106,23 @@ function main(): void {
 
     // Advertise via mDNS/Bonjour so devices discover automatically
     if (config.mdnsEnabled) {
-      const bonjour = new Bonjour();
-      
-      // Use custom domain name if provided, otherwise generate a sensible default
-      const domainName = config.customDomainName || `lan-${process.env.HOSTNAME || 'host'}.local`;
-      const serviceName = domainName.replace('.local', '');
-      
-      const bonjourService = bonjour.publish({
-        name: serviceName,
-        type: 'http',
-        port: config.port,
-        txt: {
-          path: '/',
-          description: 'LAN File Host',
-        },
-      });
+      republishMdns();
+    }
 
-      const shutdown = (): void => {
+    const shutdown = (): void => {
+      if (bonjour) {
         bonjour.unpublishAll(() => {
           bonjour.destroy();
           server.close(() => process.exit(0));
         });
-      };
+        return;
+      }
 
-      process.once('SIGINT', shutdown);
-      process.once('SIGTERM', shutdown);
-      
-      console.log(`mDNS enabled - Access at: http://${domainName}:${config.port}`);
+      server.close(() => process.exit(0));
+    };
 
-      console.log('mDNS: advertising LAN File Host on local network');
-    }
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
   });
 }
 

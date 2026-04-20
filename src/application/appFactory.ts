@@ -8,13 +8,14 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
+import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import type { AppConfig } from '../infrastructure/config';
-import { getLanIPv4Candidates } from '../infrastructure/config';
+import { getDefaultMdnsDomainName, getLanIPv4Candidates } from '../infrastructure/config';
 import { generateQrDataUrl } from '../infrastructure/qrService';
 import { renderHomePage, renderClientUI, renderAdminUI } from '../interface/html';
 import { isLoopbackAddress } from '../domain/models/hostSession';
@@ -61,6 +62,7 @@ export function createApp(
   downloadFileUseCase: DownloadFileUseCase,
   downloadDirectoryUseCase: DownloadDirectoryUseCase,
   uploadFileUseCase: UploadFileUseCase,
+  onDomainNameChanged?: (domainName: string | undefined) => void,
 ): AppContext {
   const app = express();
 
@@ -75,7 +77,7 @@ export function createApp(
   function buildStatusDto(req: Request) {
     const lanAddresses = getLanIPv4Candidates();
     const snapshot = sessionState.getSnapshot();
-    const domainName = sessionState.getDomainName() || config.customDomainName;
+    const domainName = (sessionState.getDomainName() || config.customDomainName || getDefaultMdnsDomainName()).trim().toLowerCase();
 
     return {
       appName: 'LAN File Host',
@@ -94,6 +96,50 @@ export function createApp(
       lastStoppedAt: snapshot.lastStoppedAt,
       domainName,
       mdnsEnabled: config.mdnsEnabled,
+    };
+  }
+
+  function buildDiscoveryHealthDto(req: Request) {
+    const lanAddresses = getLanIPv4Candidates();
+    const configuredDomainName = (sessionState.getDomainName() || config.customDomainName || '').trim().toLowerCase();
+    const domainName = configuredDomainName || getDefaultMdnsDomainName();
+    const lanUrls = lanAddresses.map((ip) => `http://${ip}:${config.port}`);
+    const domainUrl = domainName ? `http://${domainName}:${config.port}` : undefined;
+    const warnings: string[] = [];
+
+    if (!(config.host === '0.0.0.0' || config.host === '::')) {
+      warnings.push(`Server bind host is ${config.host}. Use HOST=0.0.0.0 for LAN access.`);
+    }
+    if (!lanAddresses.length) {
+      warnings.push('No LAN IPv4 interface detected. Connect to Wi-Fi/hotspot and retry.');
+    }
+    if (!sessionState.isSharingActive()) {
+      warnings.push('Sharing is currently stopped. Start sharing before testing from other devices.');
+    }
+    if (!config.mdnsEnabled) {
+      warnings.push('mDNS is disabled (MDNS_ENABLED=0). Domain-based access will not work.');
+    }
+    if (domainName && ['test.local', 'host.local', 'server.local', 'my-files.local'].includes(domainName)) {
+      warnings.push('Domain name is generic and may collide on LAN. Use a unique name like yourname-files.local.');
+    }
+
+    warnings.push('Many mobile browsers, especially on Android, do not reliably resolve .local mDNS hostnames. Use the LAN IP URL or QR code on phones if the domain URL fails.');
+    warnings.push('If IP URL works but domain URL does not, the network likely blocks multicast DNS or the client OS/browser does not support .local resolution.');
+    warnings.push('If nothing works from other devices, check host OS firewall and hotspot/client-isolation settings.');
+
+    return {
+      host: config.host,
+      port: config.port,
+      sharingActive: sessionState.isSharingActive(),
+      mdnsEnabled: config.mdnsEnabled,
+      configuredDomainName: configuredDomainName || undefined,
+      domainName,
+      domainUrl,
+      lanAddresses,
+      lanUrls,
+      recommendedClientUrls: domainUrl ? [...lanUrls, domainUrl] : lanUrls,
+      requestFromLoopback: isLoopbackAddress(req.socket.remoteAddress),
+      warnings,
     };
   }
 
@@ -166,6 +212,13 @@ export function createApp(
    */
   app.get('/api/status', (req, res) => {
     res.json(buildStatusDto(req));
+  });
+
+  /**
+   * GET /api/discovery-health - Diagnostics for cross-device reachability
+   */
+  app.get('/api/discovery-health', (req, res) => {
+    res.json(buildDiscoveryHealthDto(req));
   });
 
   /**
@@ -321,10 +374,12 @@ export function createApp(
    * GET /api/host/domain-name - Get current domain name
    */
   app.get('/api/host/domain-name', (req, res) => {
+    const baseHost = os.hostname().toLowerCase().replace(/\.local$/, '');
+    const suggestedHost = baseHost.replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || 'lan-file-host';
     const domainName = sessionState.getDomainName() || config.customDomainName;
     res.json({
       domainName,
-      suggested: `lan-${process.env.HOSTNAME || 'host'}.local`,
+      suggested: `${suggestedHost}.local`,
     });
   });
 
@@ -332,6 +387,8 @@ export function createApp(
    * POST /api/host/domain-name - Set custom domain name
    */
   app.post('/api/host/domain-name', requireLocalControl, (req, res) => {
+    const baseHost = os.hostname().toLowerCase().replace(/\.local$/, '');
+    const suggestedHost = baseHost.replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || 'lan-file-host';
     const { domainName } = req.body || {};
     const sanitized = String(domainName || '').trim().toLowerCase();
 
@@ -344,11 +401,13 @@ export function createApp(
     }
 
     sessionState.setDomainName(sanitized || undefined);
+    onDomainNameChanged?.(sessionState.getDomainName());
 
     res.json({
       message: 'Domain name updated',
       domainName: sessionState.getDomainName(),
-      suggested: `lan-${process.env.HOSTNAME || 'host'}.local`,
+      suggested: `${suggestedHost}.local`,
+      note: 'mDNS was re-advertised with the updated domain name.',
     });
   });
 

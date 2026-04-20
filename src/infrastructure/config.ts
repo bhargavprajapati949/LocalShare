@@ -71,6 +71,16 @@ export function loadConfig(): AppConfig {
 }
 
 /**
+ * Build the default advertised mDNS domain name from the current hostname.
+ * @returns Normalized default .local domain name
+ */
+export function getDefaultMdnsDomainName(): string {
+  const baseHost = os.hostname().toLowerCase().replace(/\.local$/, '');
+  const rawHost = baseHost.replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '') || 'lan-file-host';
+  return `${rawHost}.local`;
+}
+
+/**
  * Get local IPv4 addresses (non-loopback)
  * @returns Array of IP addresses available on network interfaces
  */

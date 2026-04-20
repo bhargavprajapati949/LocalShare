@@ -8,6 +8,7 @@
 import archiver from 'archiver';
 import fsp from 'node:fs/promises';
 import fs from 'node:fs';
+import { PassThrough } from 'node:stream';
 
 /**
  * Archive service for creating ZIP files
@@ -22,7 +23,7 @@ export class ArchiveService {
   async createDirectoryArchive(
     sourcePath: string,
     archiveName: string,
-  ): Promise<{ stream: archiver.Archiver; filename: string }> {
+  ): Promise<{ stream: NodeJS.ReadableStream; filename: string }> {
     // Verify source is a directory
     const stat = await fsp.stat(sourcePath);
     if (!stat.isDirectory()) {
@@ -33,13 +34,25 @@ export class ArchiveService {
     const archive = archiver('zip', {
       zlib: { level: 9 },
     });
+    const output = new PassThrough();
 
-    // Add directory to archive
+    archive.on('warning', (error: Error & { code?: string }) => {
+      if (error.code !== 'ENOENT') {
+        output.destroy(error);
+      }
+    });
+    archive.on('error', (error: Error) => {
+      output.destroy(error);
+    });
+    archive.pipe(output);
+
+    // Add directory entries and finalize to complete the stream.
     archive.directory(sourcePath, archiveName);
+    void archive.finalize();
 
     // Return archive stream and filename
     return {
-      stream: archive,
+      stream: output,
       filename: `${archiveName}.zip`,
     };
   }
