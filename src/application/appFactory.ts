@@ -463,24 +463,91 @@ export function createApp(
 
   /**
    * POST /api/host/pick-share-root - Open native folder picker and update shared root
-   * Currently supports macOS (osascript). Other platforms return not implemented.
+   * Supported platforms:
+   *   - macOS  : osascript (built-in)
+   *   - Linux  : zenity (GTK dialog, must be installed)
+   *   - Windows: PowerShell FolderBrowserDialog (built-in since Win Vista)
    */
   app.post('/api/host/pick-share-root', requireLocalControl, async (_req, res) => {
-    if (process.platform !== 'darwin') {
+    const platform = process.platform;
+
+    if (platform !== 'darwin' && platform !== 'linux' && platform !== 'win32') {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: 'Native directory picker is currently supported on macOS only',
+        error: 'Native directory picker is not supported on this platform',
         code: 'UNSUPPORTED_PLATFORM',
       });
       return;
     }
 
     try {
-      const { stdout } = await execFileAsync('osascript', [
-        '-e',
-        'POSIX path of (choose folder with prompt "Select shared directory")',
-      ]);
+      let picked = '';
 
-      const picked = stdout.trim();
+      if (platform === 'darwin') {
+        const { stdout } = await execFileAsync('osascript', [
+          '-e',
+          'POSIX path of (choose folder with prompt "Select shared directory")',
+        ]);
+        picked = stdout.trim();
+      } else if (platform === 'linux') {
+        // zenity is available on most GNOME/GTK desktop environments.
+        // On KDE the user can install zenity or kdialog; we try zenity first.
+        let stdout = '';
+        try {
+          ({ stdout } = await execFileAsync('zenity', [
+            '--file-selection',
+            '--directory',
+            '--title=Select shared directory',
+          ]));
+        } catch (zenityErr: any) {
+          // If zenity is not found, try kdialog (KDE)
+          if ((zenityErr as NodeJS.ErrnoException).code === 'ENOENT') {
+            try {
+              ({ stdout } = await execFileAsync('kdialog', [
+                '--getexistingdirectory',
+                os.homedir(),
+                '--title',
+                'Select shared directory',
+              ]));
+            } catch {
+              res.status(HTTP_STATUS.BAD_REQUEST).json({
+                error:
+                  'No supported directory picker found. Install zenity (GNOME/GTK) or kdialog (KDE) and retry.',
+                code: 'PICKER_NOT_AVAILABLE',
+              });
+              return;
+            }
+          } else {
+            // zenity was found but exited non-zero (user canceled)
+            res.status(HTTP_STATUS.BAD_REQUEST).json({
+              error: 'Directory picker was canceled',
+              code: 'PICKER_CANCELED',
+            });
+            return;
+          }
+        }
+        picked = stdout.trim();
+      } else {
+        // Windows: launch PowerShell with a hidden window to show FolderBrowserDialog
+        const psScript = [
+          'Add-Type -AssemblyName System.Windows.Forms',
+          '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
+          '$dialog.Description = "Select shared directory"',
+          '$dialog.ShowNewFolderButton = $true',
+          '$result = $dialog.ShowDialog()',
+          'if ($result -eq "OK") { $dialog.SelectedPath } else { exit 1 }',
+        ].join('; ');
+
+        const { stdout } = await execFileAsync('powershell.exe', [
+          '-NoProfile',
+          '-NonInteractive',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          psScript,
+        ]);
+        picked = stdout.trim();
+      }
+
       if (!picked) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({
           error: 'No directory selected',
@@ -807,10 +874,12 @@ export function createApp(
       return;
     }
 
-    const { stream, filename } = result.value;
+    const { stream, filename, totalSize } = result.value;
 
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('X-Directory-Total-Size', String(totalSize));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Directory-Total-Size');
 
     stream.on('error', () => {
       if (!res.headersSent) {

@@ -39,6 +39,7 @@ export class DownloadDirectoryUseCase {
       target: ResolvedTarget;
       stream: NodeJS.ReadableStream;
       filename: string;
+      totalSize: number;
     }>
   > {
     // Business rule: sharing must be active
@@ -66,6 +67,7 @@ export class DownloadDirectoryUseCase {
 
     // Create archive
     try {
+      const totalSize = await this.archiveService.getDirectorySize(target.absPath);
       const { stream, filename } = await this.archiveService.createDirectoryArchive(
         target.absPath,
         target.relPath ? target.relPath.split('/').pop() || 'archive' : 'root',
@@ -75,6 +77,7 @@ export class DownloadDirectoryUseCase {
         target,
         stream,
         filename,
+        totalSize,
       });
     } catch (error) {
       return err(new Error('Failed to create archive') as any);

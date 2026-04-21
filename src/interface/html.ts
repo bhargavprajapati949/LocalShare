@@ -154,7 +154,7 @@ export function renderHomePage(): string {
         </section>
       <section class="download-panel">
         <h3>Downloads</h3>
-        <div id="downloadItems" class="download-empty">No downloads yet.</div>
+        <div id="downloadItems" class="download-empty"></div>
       </section>
     </section>
     <script>
@@ -171,7 +171,7 @@ export function renderHomePage(): string {
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
             pinOverlayEl=document.getElementById("pinOverlay"),pinOverlayInputEl=document.getElementById("pinOverlayInput"),
             pinOverlayErrorEl=document.getElementById("pinOverlayError"),pinOverlaySubmitEl=document.getElementById("pinOverlaySubmit");
-      function formatBytes(b){if(!b)return"0 B";const u=["B","KB","MB","GB","TB"],i=Math.min(Math.floor(Math.log2(b)/10),u.length-1);const v=b/Math.pow(1024,i);return(i===0?v:v.toFixed(1))+" "+u[i];}
+      function formatBytes(b){if(!b)return"0 B";const u=["B","KB","MB","GB","TB"],i=Math.min(Math.floor(Math.log2(b)/10),u.length-1);const v=b/Math.pow(1024,i);return(i===0?v:v.toFixed(2))+" "+u[i];}
       function apiUrl(ep,p={}){const u=new URL(ep,window.location.origin);for(const[k,v]of Object.entries(p))if(v!=null&&v!=="")u.searchParams.set(k,String(v));return u;}
       const PIN_KEY="lan_file_host_pin",storedPin=()=>sessionStorage.getItem(PIN_KEY)||"",
             savePin=(p)=>p?sessionStorage.setItem(PIN_KEY,p):sessionStorage.removeItem(PIN_KEY),
@@ -227,30 +227,71 @@ export function renderHomePage(): string {
         stopDownloadControllers(d);
         upsertDownload(d);
       }
+      function buildDownloadActions(d){
+        if(d.status==="downloading"){
+          return d.kind==="directory"
+            ?'<button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>'
+            :'<button class="secondary" data-action="pause" data-path="'+d.relPath+'">Pause</button><button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>';
+        }
+        if(d.status==="paused"){
+          // File: can resume. No Cancel — the partial progress is preserved.
+          return '<button data-action="start" data-path="'+d.relPath+'">Resume</button>';
+        }
+        if(d.status==="queued"||d.status==="error"||d.status==="canceled"){
+          if(d.kind==="directory")return '<button data-action="start" data-path="'+d.relPath+'">Restart</button>';
+          return '<button data-action="start" data-path="'+d.relPath+'">Start</button><button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>';
+        }
+        return '';
+      }
       function renderDownloadPanel(){
         const items=Array.from(state.downloads.values());
-        if(!items.length){downloadItemsEl.className="download-empty";downloadItemsEl.innerHTML="No downloads yet.";return;}
+        if(!items.length){
+          downloadItemsEl.className="download-empty";
+          downloadItemsEl.textContent="No downloads yet.";
+          return;
+        }
         downloadItemsEl.className="";
-        downloadItemsEl.innerHTML="";
+        // Clear stale "No downloads yet." text node when transitioning from empty state
+        if(downloadItemsEl.childNodes.length===1&&downloadItemsEl.firstChild.nodeType===3){
+          downloadItemsEl.textContent="";
+        }
+        const keys=new Set(items.map((d)=>d.relPath));
+        Array.from(downloadItemsEl.querySelectorAll("div[data-key]")).forEach((el)=>{
+          if(!keys.has(el.dataset.key))el.remove();
+        });
         items.forEach((d)=>{
-          const row=document.createElement("div");row.className="download-item";
-          const pct=d.total>0?Math.round((d.received/d.total)*100):0;
+          const pct=d.total>0?Math.min(100,Math.round((d.received/d.total)*100)):0;
           const doneText=d.total>0?formatBytes(d.received)+" / "+formatBytes(d.total):formatBytes(d.received)+" / unknown";
           const statusText=d.status==="error"&&d.error?d.status+": "+d.error:d.status;
-          let actions='';
-          if(d.status==="downloading")actions='<button class="secondary" data-action="pause" data-path="'+d.relPath+'">Pause</button><button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>';
-          else if(d.status==="queued"||d.status==="paused"||d.status==="error"||d.status==="canceled")actions='<button data-action="start" data-path="'+d.relPath+'">Start</button><button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>';
-          row.innerHTML='<div class="download-top"><span class="download-name">'+d.filename+'</span><span class="download-status">'+statusText+'</span></div>'+
-            '<div class="progress-bar-wrap"><div class="progress-bar" style="width:'+(d.status==="completed"?100:pct)+'%"></div></div>'+
-            '<div class="download-meta"><span>'+doneText+'</span><span>'+formatSpeed(d.speed)+'</span></div>'+
-            '<div class="download-actions">'+actions+'</div>';
-          const startBtn=row.querySelector('button[data-action="start"]');
-          const pauseBtn=row.querySelector('button[data-action="pause"]');
-          const cancelBtn=row.querySelector('button[data-action="cancel"]');
-          if(startBtn)startBtn.addEventListener("click",()=>resumeManagedDownload(d.relPath));
-          if(pauseBtn)pauseBtn.addEventListener("click",()=>pauseManagedDownload(d.relPath));
-          if(cancelBtn)cancelBtn.addEventListener("click",()=>cancelManagedDownload(d.relPath));
-          downloadItemsEl.appendChild(row);
+          const barWidth=(d.status==="completed"?100:pct)+"%";
+          let row=downloadItemsEl.querySelector('div[data-key="'+CSS.escape(d.relPath)+'"]');
+          if(!row){
+            // First time — create the full row structure
+            row=document.createElement("div");row.className="download-item";row.dataset.key=d.relPath;
+            row.innerHTML='<div class="download-top"><span class="download-name"></span><span class="download-status"></span></div>'+
+              '<div class="progress-bar-wrap"><div class="progress-bar"></div></div>'+
+              '<div class="download-meta"><span class="dl-done"></span><span class="dl-speed"></span></div>'+
+              '<div class="download-actions"></div>';
+            row.querySelector(".download-name").textContent=d.filename;
+            downloadItemsEl.appendChild(row);
+          }
+          // Patch only the dynamic parts
+          const statusEl=row.querySelector(".download-status");
+          if(statusEl.textContent!==statusText)statusEl.textContent=statusText;
+          const bar=row.querySelector(".progress-bar");
+          if(bar.style.width!==barWidth)bar.style.width=barWidth;
+          const doneEl=row.querySelector(".dl-done");
+          if(doneEl.textContent!==doneText)doneEl.textContent=doneText;
+          const speedEl=row.querySelector(".dl-speed");
+          const speedText=formatSpeed(d.speed);
+          if(speedEl.textContent!==speedText)speedEl.textContent=speedText;
+          // Only rebuild actions HTML when status transitions (avoids button thrash)
+          const actionsEl=row.querySelector(".download-actions");
+          const newActions=buildDownloadActions(d);
+          if(actionsEl.dataset.lastStatus!==d.status){
+            actionsEl.innerHTML=newActions;
+            actionsEl.dataset.lastStatus=d.status;
+          }
         });
       }
       function showPinGate(){pinOverlayEl.classList.remove("hidden");pinOverlayInputEl.value="";pinOverlayErrorEl.textContent="";pinOverlayInputEl.focus();}
@@ -378,14 +419,29 @@ export function renderHomePage(): string {
           const resp=await fetch(url,{headers:{Range:"bytes="+start+"-"+end},signal:controller.signal});
           if(resp.status===401){clearPin();showPinGate();throw new Error("PIN required");}
           if(!(resp.ok||resp.status===206))throw new Error(resp.status+" "+resp.statusText);
-          const arr=new Uint8Array(await resp.arrayBuffer());
+          // Stream chunk byte-by-byte for smooth progress updates
+          const reader=resp.body.getReader();
+          const parts=[];
+          let chunkReceived=0;
+          try{
+            while(true){
+              const{done,value}=await reader.read();
+              if(done)break;
+              parts.push(value);
+              chunkReceived+=value.length;
+              download.received+=value.length;
+              const elapsed=Math.max(1,(Date.now()-startTs)/1000);
+              download.speed=Math.round(download.received/elapsed);
+              const pct=download.total>0?Math.min(100,Math.round((download.received/download.total)*100)):0;
+              markButtonProgress(download.relPath,"\u2193 "+(download.total>0?pct+"%":"\u2026"),pct);
+              upsertDownload(download);
+            }
+          }finally{reader.cancel();}
+          // Assemble chunk from streamed parts
+          const arr=new Uint8Array(chunkReceived);
+          let offset=0;
+          for(const p of parts){arr.set(p,offset);offset+=p.length;}
           download.chunkMap.set(chunkIndex,arr);
-          download.received+=arr.length;
-          const elapsed=Math.max(1,(Date.now()-startTs)/1000);
-          download.speed=Math.round(download.received/elapsed);
-          const pct=download.total>0?Math.round((download.received/download.total)*100):0;
-          markButtonProgress(download.relPath,"\u2193 "+(download.total>0?pct+"%":"\u2026"),pct);
-          upsertDownload(download);
         }finally{download.controllers.delete(controller);}
       }
       async function streamManagedDownload(download){
@@ -447,6 +503,7 @@ export function renderHomePage(): string {
       async function streamManagedDownloadDirectory(download){
         setButtonBusy(download.relPath,true);
         const t0=Date.now();
+        let reader=null;
         try{
           download.status="downloading";download.error="";upsertDownload(download);
           const url=apiUrl("/api/download-directory",{root:state.root,path:download.relPath,pin:state.pin});
@@ -455,11 +512,14 @@ export function renderHomePage(): string {
           const resp=await fetch(url,{signal:controller.signal});
           if(resp.status===401){clearPin();showPinGate();download.status="error";download.error="PIN required";upsertDownload(download);return;}
           if(!resp.ok){download.status="error";download.error=resp.status+" "+resp.statusText;upsertDownload(download);return;}
-          download.total=Number(resp.headers.get("Content-Length")||0);
-          const reader=resp.body.getReader();
+          download.total=Number(resp.headers.get("Content-Length")||resp.headers.get("X-Directory-Total-Size")||0);
+          reader=resp.body.getReader();
           while(true){
+            if(download.status!=="downloading"){
+            reader.cancel();break;
+            }
             const {done,value}=await reader.read();
-            if(done)break;
+            if(done||download.status!=="downloading")break;
             download.chunks.push(value);
             download.received+=value.length;
             const elapsed=Math.max(1,(Date.now()-t0)/1000);
@@ -477,13 +537,21 @@ export function renderHomePage(): string {
             download.status="completed";
             upsertDownload(download);
             markButtonProgress(download.relPath,"\u2193 ZIP",0);
+          }else if(download.status==="downloading"){
+            download.status="canceled";
+            upsertDownload(download);
           }
         }catch(err){
-          download.status=download.status==="canceled"?"canceled":"paused";
-          download.error=err&&err.name==="AbortError"?"Canceled":(err&&err.message?err.message:"Connection lost");
+          if(download.status!=="canceled"){
+            download.status=err&&err.name==="AbortError"?"canceled":"error";
+            download.error=err&&err.name!=="AbortError"&&err.message?err.message:"";
+          }
           upsertDownload(download);
         }finally{
+          if(reader){try{reader.cancel();}catch{}}
           download.controller=null;
+          download.chunks=[];
+          download.speed=0;
           setButtonBusy(download.relPath,false);
           if(download.status!=="downloading")markButtonProgress(download.relPath,"\u2193 ZIP",0);
         }
@@ -703,29 +771,50 @@ export function renderHomePage(): string {
        }
        function renderUploadPanel(){
          const items=Array.from(state.uploads.values());
-         if(!items.length){uploadItemsEl.className="download-empty";uploadItemsEl.innerHTML="No uploads yet.";return;}
-         uploadItemsEl.className="";uploadItemsEl.innerHTML="";
+         if(!items.length){
+           uploadItemsEl.className="download-empty";
+           uploadItemsEl.textContent="No uploads yet.";
+           return;
+         }
+         uploadItemsEl.className="";
+         // Remove stale rows
+         const keys=new Set(items.map((u)=>u.id));
+         Array.from(uploadItemsEl.querySelectorAll("div[data-key]")).forEach((el)=>{
+           if(!keys.has(el.dataset.key))el.remove();
+         });
          items.forEach((u)=>{
-           const row=document.createElement("div");row.className="download-item";
-           const pct=u.size>0?Math.round((u.received/u.size)*100):0;
+           const pct=u.size>0?Math.min(100,Math.round((u.received/u.size)*100)):0;
            const doneText=u.size>0?formatBytes(u.received)+" / "+formatBytes(u.size):formatBytes(u.received)+" / unknown";
            const statusText=u.status==="error"&&u.error?u.status+": "+u.error:u.status;
-           const actions=u.status==="uploading"
-             ?'<button class="secondary" data-action="pause" data-id="'+u.id+'">Pause</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
-             :(u.status==="paused"||u.status==="error"||u.status==="queued")
-               ?'<button data-action="start" data-id="'+u.id+'">Start</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
-               :'';
-           row.innerHTML='<div class="download-top"><span class="download-name">'+u.filename+'</span><span class="download-status">'+statusText+'</span></div>'+
-             '<div class="progress-bar-wrap"><div class="progress-bar" style="width:'+(u.status==="completed"?100:pct)+'%"></div></div>'+
-             '<div class="download-meta"><span>'+doneText+'</span><span>'+formatSpeed(u.speed)+'</span></div>'+
-             '<div class="download-actions">'+actions+'</div>';
-           const startBtn=row.querySelector('button[data-action="start"]');
-           const pauseBtn=row.querySelector('button[data-action="pause"]');
-           const cancelBtn=row.querySelector('button[data-action="cancel"]');
-           if(startBtn)startBtn.addEventListener("click",()=>startUpload(u.id));
-           if(pauseBtn)pauseBtn.addEventListener("click",()=>pauseUpload(u.id));
-           if(cancelBtn)cancelBtn.addEventListener("click",()=>cancelUpload(u.id));
-           uploadItemsEl.appendChild(row);
+           const barWidth=(u.status==="completed"?100:pct)+"%";
+           let row=uploadItemsEl.querySelector('div[data-key="'+CSS.escape(u.id)+'"]');
+           if(!row){
+             row=document.createElement("div");row.className="download-item";row.dataset.key=u.id;
+             row.innerHTML='<div class="download-top"><span class="download-name"></span><span class="download-status"></span></div>'+
+               '<div class="progress-bar-wrap"><div class="progress-bar"></div></div>'+
+               '<div class="download-meta"><span class="ul-done"></span><span class="ul-speed"></span></div>'+
+               '<div class="download-actions"></div>';
+             row.querySelector(".download-name").textContent=u.filename;
+             uploadItemsEl.appendChild(row);
+           }
+           const statusEl=row.querySelector(".download-status");
+           if(statusEl.textContent!==statusText)statusEl.textContent=statusText;
+           const bar=row.querySelector(".progress-bar");
+           if(bar.style.width!==barWidth)bar.style.width=barWidth;
+           const doneEl=row.querySelector(".ul-done");
+           if(doneEl.textContent!==doneText)doneEl.textContent=doneText;
+           const speedEl=row.querySelector(".ul-speed");
+           const speedText=formatSpeed(u.speed);
+           if(speedEl.textContent!==speedText)speedEl.textContent=speedText;
+           const actionsEl=row.querySelector(".download-actions");
+           if(actionsEl.dataset.lastStatus!==u.status){
+             actionsEl.dataset.lastStatus=u.status;
+             actionsEl.innerHTML=u.status==="uploading"
+               ?'<button class="secondary" data-action="pause" data-id="'+u.id+'">Pause</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
+               :(u.status==="paused"||u.status==="error"||u.status==="queued")
+                 ?'<button data-action="start" data-id="'+u.id+'">Start</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
+                 :'';
+           }
          });
        }
       function toggleSort(sortBy){
@@ -820,6 +909,24 @@ export function renderHomePage(): string {
       uploadDirBtnEl.addEventListener("click",uploadDirectory);
       createDirBtnEl.addEventListener("click",createDirectory);
       newDirNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")createDirectory();});
+      // Delegated listener for download panel — survives innerHTML re-renders
+      downloadItemsEl.addEventListener("click",(e)=>{
+        const btn=e.target.closest("button[data-action]");if(!btn)return;
+        const action=btn.dataset.action,path=btn.dataset.path;
+        if(!path)return;
+        if(action==="start")resumeManagedDownload(path);
+        else if(action==="pause")pauseManagedDownload(path);
+        else if(action==="cancel")cancelManagedDownload(path);
+      });
+      // Delegated listener for upload panel — survives innerHTML re-renders
+      uploadItemsEl.addEventListener("click",(e)=>{
+        const btn=e.target.closest("button[data-action]");if(!btn)return;
+        const action=btn.dataset.action,id=btn.dataset.id;
+        if(!id)return;
+        if(action==="start")startUpload(id);
+        else if(action==="pause")pauseUpload(id);
+        else if(action==="cancel")cancelUpload(id);
+      });
       (async()=>{setDownloadMode(state.downloadMode);renderDownloadPanel();renderUploadPanel();await loadStatus();loadQr();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();
     </script>
   </body>

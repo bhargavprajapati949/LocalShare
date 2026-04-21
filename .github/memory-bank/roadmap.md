@@ -53,7 +53,3 @@ Status values:
 
 ## Bugs
 - Android mDNS (.local) resolution unreliable on same LAN/hotspot - todo
-- Native directory picker is currently support for windows and linux - todo
-- In Downloads, show downloaded part in 2 or 3 decimal places - todo
-- In downloads progress bar is not updating for directory downloads - todo
-- Parallel chunk downloading for faster transfers - this seems not working for directories - todo
