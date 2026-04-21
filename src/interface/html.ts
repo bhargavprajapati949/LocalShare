@@ -195,7 +195,7 @@ export function renderHomePage(): string {
         while(v.includes("//"))v=v.split("//").join("/");
         while(v.startsWith("/"))v=v.slice(1);
         if(v.endsWith("/"))v=v.slice(0,-1);
-        return v;
+        return v.split("/").map((seg)=>seg.trim()).filter(Boolean).join("/");
       }
       function joinRelPath(base,part){
         const left=normalizeRelPath(base),right=normalizeRelPath(part);
