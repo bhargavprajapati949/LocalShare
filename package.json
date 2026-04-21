@@ -11,10 +11,10 @@
     "test": "node --test --import tsx src/app.test.ts src/fileService.test.ts src/webdav.test.ts",
     "package:clean": "rm -rf release",
     "package:host": "npm run build && node scripts/package-host.mjs",
-    "package:linux-x64": "npm run build && pkg dist/server.js --target node18-linux-x64 --output release/lan-file-host-linux-x64",
-    "package:macos-arm64": "npm run build && pkg dist/server.js --target node18-macos-arm64 --output release/lan-file-host-macos-arm64",
-    "package:macos-x64": "npm run build && pkg dist/server.js --target node18-macos-x64 --output release/lan-file-host-macos-x64",
-    "package:windows-x64": "npm run build && pkg dist/server.js --target node18-win-x64 --output release/lan-file-host-win-x64.exe",
+    "package:linux-x64": "npm run build && pkg dist/server.js --public --no-bytecode --target node18-linux-x64 --output release/localshare-linux-x64",
+    "package:macos-arm64": "npm run build && pkg dist/server.js --public --no-bytecode --target node18-macos-arm64 --output release/localshare-macos-arm64",
+    "package:macos-x64": "npm run build && pkg dist/server.js --public --no-bytecode --target node18-macos-x64 --output release/localshare-macos-x64",
+    "package:windows-x64": "npm run build && pkg dist/server.js --public --no-bytecode --target node18-win-x64 --output release/localshare-win-x64.exe",
     "package:all": "npm run build && node scripts/package-all.mjs"
   },
   "keywords": [],
@@ -28,6 +28,7 @@
     "express": "^5.2.1",
     "mime-types": "^3.0.2",
     "multer": "^2.1.1",
+    "ngrok": "^5.3.2",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {

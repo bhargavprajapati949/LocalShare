@@ -252,4 +252,34 @@ export interface HostSessionPort {
    * Enable or disable WebDAV mode
    */
   setWebdavEnabled(enabled: boolean): void;
+
+  /**
+   * Check whether internet tunnel is enabled
+   */
+  isTunnelEnabled(): boolean;
+
+  /**
+   * Enable or disable internet tunnel
+   */
+  setTunnelEnabled(enabled: boolean): void;
+
+  /**
+   * Get current tunnel type (ngrok or localtunnel)
+   */
+  getTunnelType(): 'ngrok' | 'localtunnel';
+
+  /**
+   * Set tunnel type
+   */
+  setTunnelType(type: 'ngrok' | 'localtunnel'): void;
+
+  /**
+   * Get current tunnel URL if active
+   */
+  getTunnelUrl(): string | undefined;
+
+  /**
+   * Set tunnel URL (typically set by tunnel service)
+   */
+  setTunnelUrl(url: string | undefined): void;
 }

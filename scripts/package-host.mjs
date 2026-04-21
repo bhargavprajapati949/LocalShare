@@ -19,13 +19,13 @@ if (process.arch !== 'x64' && process.arch !== 'arm64') {
 }
 
 const target = `node18-${mappedPlatform}-${process.arch}`;
-const outputName = `lan-file-host-${mappedPlatform}-${process.arch}${mappedPlatform === 'win' ? '.exe' : ''}`;
+const outputName = `localshare-${mappedPlatform}-${process.arch}${mappedPlatform === 'win' ? '.exe' : ''}`;
 
 mkdirSync('release', { recursive: true });
 
 const result = spawnSync(
   'npx',
-  ['pkg', 'dist/server.js', '--target', target, '--output', `release/${outputName}`],
+  ['pkg', 'dist/server.js', '--public', '--no-bytecode', '--target', target, '--output', `release/${outputName}`],
   { stdio: 'inherit' },
 );
 

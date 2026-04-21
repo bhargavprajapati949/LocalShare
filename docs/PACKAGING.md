@@ -37,27 +37,27 @@ Artifacts are generated in the release folder.
 
 Typical outputs:
 
-- release/lan-file-host-linux-x64
-- release/lan-file-host-macos-arm64
-- release/lan-file-host-macos-x64
-- release/lan-file-host-win-x64.exe
+- release/localshare-linux-x64
+- release/localshare-macos-arm64
+- release/localshare-macos-x64
+- release/localshare-win-x64.exe
 
 ## Consumer Run Instructions
 
 ### macOS / Linux
 
 ```bash
-chmod +x lan-file-host-macos-arm64
-./lan-file-host-macos-arm64
+chmod +x localshare-macos-arm64
+./localshare-macos-arm64
 ```
 
 ### Windows
 
-- Double-click lan-file-host-win-x64.exe
+- Double-click localshare-win-x64.exe
 - Or run from PowerShell:
 
 ```powershell
-.\lan-file-host-win-x64.exe
+.\localshare-win-x64.exe
 ```
 
 Then open http://localhost:8080.
@@ -75,7 +75,7 @@ Packaged binaries support the same env vars:
 Example (macOS/Linux):
 
 ```bash
-SHARE_ROOTS="$HOME/Downloads,$HOME/Documents" SESSION_PIN=1234 ./lan-file-host-macos-arm64
+SHARE_ROOTS="$HOME/Downloads,$HOME/Documents" SESSION_PIN=1234 ./localshare-macos-arm64
 ```
 
 Example (Windows PowerShell):
@@ -83,5 +83,5 @@ Example (Windows PowerShell):
 ```powershell
 $env:SHARE_ROOTS="C:\Users\me\Downloads,C:\Users\me\Documents"
 $env:SESSION_PIN="1234"
-.\lan-file-host-win-x64.exe
+.\localshare-win-x64.exe
 ```
