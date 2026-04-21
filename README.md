@@ -1,155 +1,77 @@
-# LAN File Host (Implementation Starter)
+# LAN File Host
 
-This is the first implementation slice of your product idea: a cross-platform-compatible core that starts a local HTTP server, exposes selected file-system roots, and lets other devices browse/download files from a browser.
+LAN File Host is a local-network file sharing app for fast transfer between devices on the same Wi-Fi or hotspot, without cloud upload, account signup, or external dependencies.
 
-## What is implemented
+It provides a browser client UI, a localhost-only admin UI, and WebDAV support for Finder/Files/Cyberduck style clients.
 
-- Local HTTP server (`Express`) binding to `0.0.0.0` by default
-- Sharing session lifecycle controls (start/stop) with persistent active mode until explicitly stopped
-- Multi-root sharing via env config
-- Directory listing API with path traversal protection
-- File download API
-- Optional session PIN gate (`SESSION_PIN`)
-- Built-in browser UI with host status, LAN IP visibility, and security warning
-- LAN IP discovery output in logs and status API
-- v0 automated tests for path safety and list-route lifecycle behavior
+## Why this project
 
-## Quick start
+- No account setup
+- No internet dependency
+- Works across desktop and mobile browsers on the same LAN
+- Simple host controls for sharing and access policies
 
-1. Install dependencies
+## Feature Snapshot
+
+- Browse and download files/folders from browser
+- ZIP download for directories
+- Managed downloads with progress and pause/resume/cancel
+- Parallel chunk downloads for faster transfer
+- File and directory upload with resumable chunked uploads
+- Create/delete file operations from UI
+- Optional PIN protection
+- Read/upload/create/delete runtime permission toggles
+- WebDAV mode with host-side enable/disable
+- QR share and mDNS local domain support
+- Discovery diagnostics for LAN troubleshooting
+- Cross-platform packaging into standalone executables
+
+For full feature breakdown, see [docs/FEATURES.md](docs/FEATURES.md).
+
+## Documentation Map
+
+- Project features: [docs/FEATURES.md](docs/FEATURES.md)
+- Quick start and daily usage: [docs/QUICK_START.md](docs/QUICK_START.md)
+- Packaging and distribution: [docs/PACKAGING.md](docs/PACKAGING.md)
+- Technical architecture and APIs: [docs/TECHNICAL_OVERVIEW.md](docs/TECHNICAL_OVERVIEW.md)
+
+## Quick Start
 
 ```bash
 npm install
-```
-
-2. Run in development
-
-```bash
 npm run dev
 ```
 
-3. Open in browser on host
+Open:
 
-```text
-http://localhost:8080
-```
+- Client UI: http://localhost:8080/
+- Admin UI: http://localhost:8080/admin
 
-4. Open from another device on same LAN
+For complete setup and environment options, see [docs/QUICK_START.md](docs/QUICK_START.md).
 
-Use one of the printed LAN URLs, for example:
+## Packaging for Public Distribution
 
-```text
-http://192.168.1.10:8080
-```
-
-## Build distributable binaries (ship to consumers)
-
-This project can be packaged as a standalone executable so end users do not need Node.js.
-
-1. Build one binary for your current machine:
+Build binaries for consumer machines:
 
 ```bash
 npm run package:host
-```
-
-2. Build platform-specific binaries:
-
-```bash
-npm run package:linux-x64
-npm run package:macos-arm64
-npm run package:macos-x64
-npm run package:windows-x64
-```
-
-3. Build all supported targets in one command:
-
-```bash
 npm run package:all
 ```
 
-Generated files are written to the `release` folder.
+Artifacts are produced in the `release` directory.
 
-## Consumer run instructions (no Node.js required)
+Detailed distribution instructions are in [docs/PACKAGING.md](docs/PACKAGING.md).
 
-After you share the binary, the consumer only needs to run it.
-
-### macOS / Linux
+## Core Scripts
 
 ```bash
-chmod +x lan-file-host-macos-arm64   # or matching file name
-./lan-file-host-macos-arm64
+npm run dev
+npm run build
+npm start
+npm run typecheck
+npm test
 ```
 
-### Windows
+## License
 
-Double-click `lan-file-host-win-x64.exe` or run from PowerShell:
-
-```powershell
-.\lan-file-host-win-x64.exe
-```
-
-Then open `http://localhost:8080` in a browser on that machine.
-
-## Optional runtime configuration for packaged binaries
-
-Packaged binaries still use the same env vars:
-
-- `PORT` (default: `8080`)
-- `HOST` (default: `0.0.0.0`)
-- `SHARE_ROOTS` (comma-separated paths, default: current working directory)
-- `SESSION_PIN` (optional)
-
-Example (macOS/Linux):
-
-```bash
-SHARE_ROOTS="$HOME/Downloads,$HOME/Documents" SESSION_PIN=1234 ./lan-file-host-macos-arm64
-```
-
-Example (Windows PowerShell):
-
-```powershell
-$env:SHARE_ROOTS="C:\Users\me\Downloads,C:\Users\me\Documents"
-$env:SESSION_PIN="1234"
-.\lan-file-host-win-x64.exe
-```
-
-## Configuration
-
-Environment variables:
-
-- `PORT` (default: `8080`)
-- `HOST` (default: `0.0.0.0`)
-- `SHARE_ROOTS` (comma-separated paths, default: current working directory)
-- `SESSION_PIN` (optional; if set, required for API requests)
-
-Example:
-
-```bash
-PORT=9090 SHARE_ROOTS="$HOME/Downloads,$HOME/Documents" SESSION_PIN=1234 npm run dev
-```
-
-## APIs (v0)
-
-- `GET /api/status`
-- `POST /api/host/start` (localhost only)
-- `POST /api/host/stop` (localhost only)
-- `GET /api/list?root=0&path=`
-- `GET /api/download?root=0&path=relative/path/to/file`
-
-If PIN is enabled, include `pin=1234` query parameter (or `x-session-pin` header).
-
-## Current limitations
-
-- Browser-side UI is basic
-- No upload support yet
-- No mDNS discovery yet
-- No QR generation yet
-- No native mobile/desktop shell yet (this is the core service layer)
-
-## Next implementation milestones
-
-1. Add mDNS/Bonjour host discovery
-2. Add QR link in host UI
-3. Add folder-as-zip bulk download
-4. Add native shell wrappers (Capacitor for mobile + desktop shell)
-5. Add per-session access modes and roadmap PIN flow UX
+ISC

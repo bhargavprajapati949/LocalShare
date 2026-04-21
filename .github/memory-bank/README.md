@@ -24,8 +24,7 @@ Persistent project context for decisions, standards, and execution. Single sourc
 
 ## Tool Compatibility
 - **Copilot** reads repository instructions from `.github/copilot-instructions.md`.
-- **Claude CLI** reads repository instructions from `CLAUDE.md`.
-- Both instruction files point to this same memory bank to avoid drift.
+- Keep assistant instructions aligned with this memory bank to avoid drift.
 
 ## Key Principles
 - **Conciseness**: No filler; every line earns its place.
