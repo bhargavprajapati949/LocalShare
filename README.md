@@ -1,6 +1,6 @@
-# LAN File Host
+# LocalShare
 
-LAN File Host is a local-network file sharing app for fast transfer between devices on the same Wi-Fi or hotspot, without cloud upload, account signup, or external dependencies.
+LocalShare is a local-network file sharing app for fast transfer between devices on the same Wi-Fi or hotspot, without cloud upload, account signup, or external dependencies.
 
 It provides a browser client UI, a localhost-only admin UI, and WebDAV support for Finder/Files/Cyberduck style clients.
 
