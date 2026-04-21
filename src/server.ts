@@ -41,12 +41,14 @@ function main(): void {
   const bonjour = config.mdnsEnabled ? new Bonjour() : undefined;
   let activeService: { stop?: CallableFunction } | undefined;
 
-  const republishMdns = (domainOverride?: string): void => {
+  const republishMdns = (domainOverride?: string, retryCount = 0): void => {
     if (!bonjour) {
       return;
     }
 
-    const domainName = (domainOverride || sessionState.getDomainName() || config.customDomainName || getDefaultMdnsDomainName()).toLowerCase();
+    const baseDomainName = (domainOverride || sessionState.getDomainName() || config.customDomainName || getDefaultMdnsDomainName()).toLowerCase();
+    // On retry, append a counter to the domain name to avoid conflicts
+    const domainName = retryCount > 0 ? baseDomainName.replace(/\.local$/, `-${retryCount}.local`) : baseDomainName;
     const lanAddresses = getLanIPv4Candidates();
 
     const previous = activeService;
@@ -63,19 +65,41 @@ function main(): void {
       },
     } as unknown as Parameters<typeof bonjour.publish>[0];
 
-    const svc = bonjour.publish(serviceConfig);
-    // Suppress well-known bonjour conflicts (duplicate service name on LAN)
-    (svc as unknown as { on?: (evt: string, cb: (err: Error) => void) => void }).on?.('error', (err: Error) => {
-      console.warn(`mDNS: ${err.message}`);
-    });
-    activeService = svc;
+    try {
+      const svc = bonjour.publish(serviceConfig);
+      
+      // Attach error handler to catch mDNS conflicts
+      if (svc && typeof svc === 'object' && 'on' in svc) {
+        (svc as any).on('error', (err: Error) => {
+          console.warn(`mDNS: ${err.message}`);
+          // If service name is in use, retry with a modified name
+          if (err.message?.includes('already in use') && retryCount < 3) {
+            console.warn(`mDNS: Retrying with alternative service name...`);
+            // Clean up previous attempt
+            if (activeService?.stop) {
+              activeService.stop(() => undefined);
+            }
+            activeService = undefined;
+            // Retry with incremented counter
+            setTimeout(() => {
+              republishMdns(domainOverride, retryCount + 1);
+            }, 1000);
+          }
+        });
+      }
+      
+      activeService = svc;
 
-    if (previous?.stop) {
-      previous.stop(() => undefined);
+      if (previous?.stop) {
+        previous.stop(() => undefined);
+      }
+
+      console.log(`mDNS enabled - Access at: http://${domainName}:${config.port}`);
+      console.log('mDNS: advertising LAN File Host on local network');
+    } catch (error) {
+      console.warn(`mDNS error: ${error instanceof Error ? error.message : String(error)}`);
+      // Server continues to work without mDNS if publishing fails
     }
-
-    console.log(`mDNS enabled - Access at: http://${domainName}:${config.port}`);
-    console.log('mDNS: advertising LAN File Host on local network');
   };
 
   // Create Express app (injected with all dependencies)
