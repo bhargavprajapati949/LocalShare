@@ -42,6 +42,77 @@ Use one of the printed LAN URLs, for example:
 http://192.168.1.10:8080
 ```
 
+## Build distributable binaries (ship to consumers)
+
+This project can be packaged as a standalone executable so end users do not need Node.js.
+
+1. Build one binary for your current machine:
+
+```bash
+npm run package:host
+```
+
+2. Build platform-specific binaries:
+
+```bash
+npm run package:linux-x64
+npm run package:macos-arm64
+npm run package:macos-x64
+npm run package:windows-x64
+```
+
+3. Build all supported targets in one command:
+
+```bash
+npm run package:all
+```
+
+Generated files are written to the `release` folder.
+
+## Consumer run instructions (no Node.js required)
+
+After you share the binary, the consumer only needs to run it.
+
+### macOS / Linux
+
+```bash
+chmod +x lan-file-host-macos-arm64   # or matching file name
+./lan-file-host-macos-arm64
+```
+
+### Windows
+
+Double-click `lan-file-host-win-x64.exe` or run from PowerShell:
+
+```powershell
+.\lan-file-host-win-x64.exe
+```
+
+Then open `http://localhost:8080` in a browser on that machine.
+
+## Optional runtime configuration for packaged binaries
+
+Packaged binaries still use the same env vars:
+
+- `PORT` (default: `8080`)
+- `HOST` (default: `0.0.0.0`)
+- `SHARE_ROOTS` (comma-separated paths, default: current working directory)
+- `SESSION_PIN` (optional)
+
+Example (macOS/Linux):
+
+```bash
+SHARE_ROOTS="$HOME/Downloads,$HOME/Documents" SESSION_PIN=1234 ./lan-file-host-macos-arm64
+```
+
+Example (Windows PowerShell):
+
+```powershell
+$env:SHARE_ROOTS="C:\Users\me\Downloads,C:\Users\me\Documents"
+$env:SESSION_PIN="1234"
+.\lan-file-host-win-x64.exe
+```
+
 ## Configuration
 
 Environment variables:
