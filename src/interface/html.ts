@@ -778,6 +778,20 @@ export function renderAdminUI(): string {
         <p id="transferStatus" style="margin:8px 0 0;color:var(--muted);font-size:12px;"></p>
       </div>
       <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+        <h2 style="margin:0 0 12px;font-size:16px;">Session PIN</h2>
+        <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Require a PIN before clients can browse or download files. Leave empty to allow open access.</p>
+        <div id="pinStatusBox" style="margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--muted);">Loading&hellip;</div>
+        <div class="host-row">
+          <label for="pinValue" class="host-label" style="grid-column:1/-1">New PIN (4&ndash;16 digits)</label>
+          <input id="pinValue" type="password" inputmode="numeric" maxlength="16" placeholder="4–16 digit PIN" autocomplete="off" />
+          <button id="savePinBtn" class="secondary">Set PIN</button>
+        </div>
+        <div style="margin-top:8px;">
+          <button id="clearPinBtn" class="secondary" style="color:var(--danger);border-color:var(--danger);">Disable PIN</button>
+        </div>
+        <p id="pinSaveStatus" style="margin:8px 0 0;color:var(--muted);font-size:12px;"></p>
+      </div>
+      <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
         <h2 style="margin:0 0 12px;font-size:16px;">Client Access</h2>
         <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Open the client UI below to access files from any device on the LAN.</p>
         <button id="openClientUI" class="secondary">Open Client UI</button>
@@ -813,6 +827,8 @@ export function renderAdminUI(): string {
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
         uploadEnabledEl=document.getElementById("uploadEnabled"),createEnabledEl=document.getElementById("createEnabled"),deleteEnabledEl=document.getElementById("deleteEnabled"),uploadMaxSizeMbEl=document.getElementById("uploadMaxSizeMb"),
         saveTransferEl=document.getElementById("saveTransfer"),transferStatusEl=document.getElementById("transferStatus"),
+            pinStatusBoxEl=document.getElementById("pinStatusBox"),pinValueEl=document.getElementById("pinValue"),
+            savePinBtnEl=document.getElementById("savePinBtn"),clearPinBtnEl=document.getElementById("clearPinBtn"),pinSaveStatusEl=document.getElementById("pinSaveStatus"),
             openClientUIEl=document.getElementById("openClientUI"),domainNameEl=document.getElementById("domainName"),
             saveDomainEl=document.getElementById("saveDomain"),domainStatusEl=document.getElementById("domainStatus"),
             healthDomainEl=document.getElementById("healthDomain"),healthUrlsEl=document.getElementById("healthUrls"),healthWarningsEl=document.getElementById("healthWarnings");
@@ -858,6 +874,44 @@ export function renderAdminUI(): string {
         transferStatusEl.textContent="Upload settings saved.";
       }
       async function loadDomainName(){try{const r=await fetch("/api/host/domain-name");if(!r.ok)return;const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"Domain: "+data.domainName:"Suggested: "+data.suggested;}catch{}}
+      async function loadPinSettings(){
+        try{
+          const r=await fetch("/api/host/access");
+          if(!r.ok)throw new Error("Failed");
+          const data=await r.json();
+          if(data.requiresPin){
+            const src=data.pinSource==="env"?" (set via SESSION_PIN env var, cannot be cleared here)":data.pinSource==="runtime"?" (set via admin UI)":"";
+            pinStatusBoxEl.textContent="PIN is active"+src;
+            pinStatusBoxEl.style.borderColor="var(--success)";
+            pinStatusBoxEl.style.color="var(--success)";
+          }else{
+            pinStatusBoxEl.textContent="PIN is disabled — files are open to all LAN devices";
+            pinStatusBoxEl.style.borderColor="var(--line)";
+            pinStatusBoxEl.style.color="var(--muted)";
+          }
+          clearPinBtnEl.hidden=!data.requiresPin||data.pinSource==="env";
+        }catch{
+          pinStatusBoxEl.textContent="Failed to load PIN settings.";
+        }
+      }
+      async function savePinSettings(){
+        const pin=pinValueEl.value.trim();
+        if(!/^\\d{4,16}$/.test(pin)){pinSaveStatusEl.textContent="PIN must be 4\u201316 digits.";return;}
+        const r=await fetch("/api/host/access/pin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pin})});
+        if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));pinSaveStatusEl.textContent=e.error||"Failed to set PIN.";return;}
+        pinValueEl.value="";
+        pinSaveStatusEl.textContent="PIN set. Clients will now be prompted for it.";
+        await loadPinSettings();
+        await loadStatus();
+      }
+      async function clearPinSettings(){
+        if(!confirm("Disable PIN? Clients will no longer need a PIN to access files."))return;
+        const r=await fetch("/api/host/access/pin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pin:""})});
+        if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));pinSaveStatusEl.textContent=e.error||"Failed to clear PIN.";return;}
+        pinSaveStatusEl.textContent="PIN disabled. Files are now open on the LAN.";
+        await loadPinSettings();
+        await loadStatus();
+      }
       function renderDiscoveryHealth(data){
         healthDomainEl.textContent=data.domainName||"No custom domain configured";
         const urls=Array.isArray(data.recommendedClientUrls)?data.recommendedClientUrls:[];
@@ -905,9 +959,12 @@ export function renderAdminUI(): string {
       domainNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveDomainName();});
       saveTransferEl.addEventListener("click",saveTransferSettings);
       uploadMaxSizeMbEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveTransferSettings();});
-      refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadTransferSettings();await loadDiscoveryHealth();});
+      savePinBtnEl.addEventListener("click",savePinSettings);
+      pinValueEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")savePinSettings();});
+      clearPinBtnEl.addEventListener("click",clearPinSettings);
+      refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadTransferSettings();await loadPinSettings();await loadDiscoveryHealth();});
       openClientUIEl.addEventListener("click",()=>window.location.href="/");
-      (async()=>{await loadStatus();await loadTransferSettings();loadQr();await loadDomainName();await loadDiscoveryHealth();})();
+      (async()=>{await loadStatus();await loadTransferSettings();await loadPinSettings();loadQr();await loadDomainName();await loadDiscoveryHealth();})();
     </script>
   </body>
 </html>`;

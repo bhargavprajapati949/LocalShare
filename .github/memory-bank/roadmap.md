@@ -40,9 +40,9 @@ Status values:
 - Local domain resolution so clients can use hostname instead of raw IP - done
 
 ### Security and Access
-- Session PIN support - todo
+- Session PIN support - done
 - Session PIN behavior documentation (how current implementation works) - todo
-- Remove client UI controls that should be host-only (shared roots, PIN settings) - todo
+- Remove client UI controls that should be host-only (shared roots, PIN settings) - done
 - Read/write policies - todo
 - Trusted devices - todo
 - Logs and session control - todo
