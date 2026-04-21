@@ -13,6 +13,8 @@ import { ListFilesUseCase } from './application/useCases/listFiles';
 import { DownloadFileUseCase } from './application/useCases/downloadFile';
 import { DownloadDirectoryUseCase } from './application/useCases/downloadDirectory';
 import { UploadFileUseCase } from './application/useCases/uploadFile';
+import { CreateDirectoryUseCase } from './application/useCases/createDirectory';
+import { DeleteEntryUseCase } from './application/useCases/deleteEntry';
 import { createApp } from './application/appFactory';
 
 /**
@@ -33,6 +35,8 @@ function main(): void {
   const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
   const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
   const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+  const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+  const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
 
   const bonjour = config.mdnsEnabled ? new Bonjour() : undefined;
   let activeService: { stop?: CallableFunction } | undefined;
@@ -82,6 +86,8 @@ function main(): void {
     downloadFileUseCase,
     downloadDirectoryUseCase,
     uploadFileUseCase,
+    createDirectoryUseCase,
+    deleteEntryUseCase,
     (domainName) => {
       republishMdns(domainName);
     },

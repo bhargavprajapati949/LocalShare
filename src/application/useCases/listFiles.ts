@@ -7,7 +7,7 @@
 
 import type { FileSystemPort, ResolvedTarget } from '../../domain/ports';
 import type { HostSessionPort } from '../../domain/ports';
-import { ShareSessionError } from '../../domain/errors';
+import { DomainError, ShareSessionError } from '../../domain/errors';
 import type { Result } from '../../domain/result';
 import { err, ok } from '../../domain/result';
 import type { FileListEntry } from '../../domain/ports';
@@ -32,6 +32,8 @@ export class ListFilesUseCase {
   async execute(
     rootId: string,
     relPath: string,
+    sortBy: 'name' | 'size' | 'date' = 'name',
+    sortDir: 'asc' | 'desc' = 'asc',
   ): Promise<Result<{ target: ResolvedTarget; entries: FileListEntry[] }>> {
     // Business rule: sharing must be active
     if (!this.session.isSharingActive()) {
@@ -53,7 +55,7 @@ export class ListFilesUseCase {
     }
 
     if (!statsResult.value.isDirectory) {
-      return err(new Error('Requested path is not a directory') as any);
+      return err(new DomainError('NOT_A_DIRECTORY', 'Requested path is not a directory'));
     }
 
     // List directory entries
@@ -62,9 +64,47 @@ export class ListFilesUseCase {
       return entriesResult;
     }
 
+    const sorted = [...entriesResult.value].sort((a, b) => {
+      if (sortBy === 'size') {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
+        const primary = a.size - b.size;
+        if (primary !== 0) {
+          return sortDir === 'asc' ? primary : -primary;
+        }
+        const fallback = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        return sortDir === 'asc' ? fallback : -fallback;
+      }
+
+      if (sortBy === 'date') {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
+        const ta = new Date(a.modifiedAt).getTime();
+        const tb = new Date(b.modifiedAt).getTime();
+        const primary = ta - tb;
+        if (primary !== 0) {
+          return sortDir === 'asc' ? primary : -primary;
+        }
+        const fallback = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        return sortDir === 'asc' ? fallback : -fallback;
+      }
+
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+
+      const primary = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      if (primary !== 0) {
+        return sortDir === 'asc' ? primary : -primary;
+      }
+      return 0;
+    });
+
     return ok({
       target,
-      entries: entriesResult.value,
+      entries: sorted,
     });
   }
 }

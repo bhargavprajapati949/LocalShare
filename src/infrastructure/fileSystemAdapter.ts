@@ -222,6 +222,65 @@ export class FileSystemAdapter implements FileSystemPort {
   }
 
   /**
+   * Create a directory under a resolved parent directory.
+   */
+  async createDirectory(targetDir: ResolvedTarget, name: string): Promise<Result<{ absPath: string; relPath: string }>> {
+    try {
+      const trimmed = String(name || '').trim();
+      if (!trimmed || trimmed === '.' || trimmed === '..' || trimmed.includes('/') || trimmed.includes('\\')) {
+        return err(new DirectoryAccessError('Invalid directory name'));
+      }
+
+      const parentStats = await fsp.stat(targetDir.absPath);
+      if (!parentStats.isDirectory()) {
+        return err(new DirectoryAccessError('Target is not a directory'));
+      }
+
+      const absPath = path.join(targetDir.absPath, trimmed);
+      const root = this.roots.find((r) => r.id === targetDir.rootId);
+      if (!root || !this.isInsideRoot(root.absPath, absPath)) {
+        return err(new DirectoryAccessError('Directory path would escape root'));
+      }
+
+      await fsp.mkdir(absPath);
+      const relPath = targetDir.relPath ? `${targetDir.relPath}/${trimmed}` : trimmed;
+      return ok({ absPath, relPath });
+    } catch (error) {
+      if (error instanceof Error && 'code' in error) {
+        const code = (error as any).code;
+        if (code === 'EEXIST') {
+          return err(new DirectoryAccessError('Directory already exists'));
+        }
+        if (code === 'EACCES') {
+          return err(new DirectoryAccessError('Permission denied'));
+        }
+      }
+      return err(new DirectoryAccessError('Failed to create directory'));
+    }
+  }
+
+  /**
+   * Delete a file or directory recursively.
+   */
+  async deleteEntry(target: ResolvedTarget): Promise<Result<void>> {
+    try {
+      await fsp.rm(target.absPath, { recursive: true, force: false });
+      return ok(undefined);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error) {
+        const code = (error as any).code;
+        if (code === 'ENOENT') {
+          return err(new FileNotFoundError('Entry not found'));
+        }
+        if (code === 'EACCES') {
+          return err(new FileAccessError('Permission denied'));
+        }
+      }
+      return err(new FileAccessError('Failed to delete entry'));
+    }
+  }
+
+  /**
    * Validate and sanitize relative path
    * @param relPath - Relative path from user
    * @returns Sanitized path or error

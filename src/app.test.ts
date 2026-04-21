@@ -19,6 +19,8 @@ import { ListFilesUseCase } from './application/useCases/listFiles';
 import { DownloadFileUseCase } from './application/useCases/downloadFile';
 import { DownloadDirectoryUseCase } from './application/useCases/downloadDirectory';
 import { UploadFileUseCase } from './application/useCases/uploadFile';
+import { CreateDirectoryUseCase } from './application/useCases/createDirectory';
+import { DeleteEntryUseCase } from './application/useCases/deleteEntry';
 
 async function withTempRoot(run: (rootPath: string) => Promise<void>): Promise<void> {
   const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'lan-file-host-app-test-'));
@@ -50,8 +52,10 @@ test('status includes host ip candidates and sharing state', async () => {
     const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
     const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
     const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
     const response = await request(app).get('/api/status').expect(200);
 
     assert.equal(response.body.sharingActive, true);
@@ -84,8 +88,10 @@ test('list route blocks while host sharing is stopped and resumes after start', 
     const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
     const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
     const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
     await request(app).post('/api/host/stop').expect(200);
     await request(app).get('/api/list?root=0&path=').expect(503);
@@ -128,7 +134,9 @@ test('host can update shared root at runtime and clients see new directory', asy
       const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
       const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
       const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
-      const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
+      const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+      const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+      const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
       const before = await request(app).get('/api/list?root=0&path=').expect(200);
       assert.equal(
@@ -180,8 +188,10 @@ test('download endpoint supports HTTP range requests for resumable downloads', a
     const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
     const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
     const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
     const response = await request(app)
       .get('/api/download?root=0&path=sample.txt')
@@ -191,5 +201,112 @@ test('download endpoint supports HTTP range requests for resumable downloads', a
     assert.equal(response.headers['accept-ranges'], 'bytes');
     assert.equal(response.headers['content-range'], 'bytes 2-4/6');
     assert.equal(response.text, 'cde');
+  });
+});
+
+test('list route supports sorting by name/size/date', async () => {
+  await withTempRoot(async (rootPath) => {
+    await fsp.writeFile(path.join(rootPath, 'b-file.txt'), 'bbbb');
+    await new Promise((r) => setTimeout(r, 10));
+    await fsp.writeFile(path.join(rootPath, 'a-file.txt'), 'a');
+
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+    const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+
+    const byName = await request(app).get('/api/list?root=0&path=&sortBy=name&sortDir=asc').expect(200);
+    assert.equal(byName.body.entries[0].name, 'a-file.txt');
+
+    const bySize = await request(app).get('/api/list?root=0&path=&sortBy=size&sortDir=desc').expect(200);
+    assert.equal(bySize.body.entries[0].name, 'b-file.txt');
+
+    const byDate = await request(app).get('/api/list?root=0&path=&sortBy=date&sortDir=desc').expect(200);
+    assert.equal(byDate.body.entries[0].name, 'a-file.txt');
+  });
+});
+
+test('can create and delete directory via file browsing APIs', async () => {
+  await withTempRoot(async (rootPath) => {
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+    const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+
+    await request(app)
+      .post('/api/fs/mkdir')
+      .send({ root: '0', path: '', name: 'new-folder' })
+      .expect(200);
+
+    const listAfterCreate = await request(app).get('/api/list?root=0&path=').expect(200);
+    assert.equal(listAfterCreate.body.entries.some((e: { name: string }) => e.name === 'new-folder'), true);
+
+    await request(app)
+      .delete('/api/fs/entry?root=0&path=new-folder')
+      .expect(200);
+
+    const listAfterDelete = await request(app).get('/api/list?root=0&path=').expect(200);
+    assert.equal(listAfterDelete.body.entries.some((e: { name: string }) => e.name === 'new-folder'), false);
+  });
+});
+
+test('modify/delete toggles are enforced by APIs', async () => {
+  await withTempRoot(async (rootPath) => {
+    await fsp.mkdir(path.join(rootPath, 'to-delete'));
+
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+    const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+
+    await request(app)
+      .post('/api/host/transfer')
+      .send({ modifyEnabled: false, deleteEnabled: false })
+      .expect(200);
+
+    await request(app)
+      .post('/api/fs/mkdir')
+      .send({ root: '0', path: '', name: 'blocked' })
+      .expect(403);
+
+    await request(app)
+      .delete('/api/fs/entry?root=0&path=to-delete')
+      .expect(403);
   });
 });

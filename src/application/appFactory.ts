@@ -25,6 +25,8 @@ import type { ListFilesUseCase } from './useCases/listFiles';
 import type { DownloadFileUseCase } from './useCases/downloadFile';
 import type { DownloadDirectoryUseCase } from './useCases/downloadDirectory';
 import type { UploadFileUseCase } from './useCases/uploadFile';
+import type { CreateDirectoryUseCase } from './useCases/createDirectory';
+import type { DeleteEntryUseCase } from './useCases/deleteEntry';
 import { isDomainError } from '../domain/errors';
 
 /**
@@ -74,6 +76,8 @@ export function createApp(
   downloadFileUseCase: DownloadFileUseCase,
   downloadDirectoryUseCase: DownloadDirectoryUseCase,
   uploadFileUseCase: UploadFileUseCase,
+  createDirectoryUseCase: CreateDirectoryUseCase,
+  deleteEntryUseCase: DeleteEntryUseCase,
   onDomainNameChanged?: (domainName: string | undefined) => void,
 ): AppContext {
   const app = express();
@@ -114,6 +118,9 @@ export function createApp(
       mdnsEnabled: config.mdnsEnabled,
       uploadEnabled: sessionState.isUploadEnabled(),
       uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
+      createEnabled: sessionState.isModifyEnabled(),
+      modifyEnabled: sessionState.isModifyEnabled(),
+      deleteEnabled: sessionState.isDeleteEnabled(),
     };
   }
 
@@ -325,6 +332,9 @@ export function createApp(
     res.json({
       uploadEnabled: sessionState.isUploadEnabled(),
       uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
+      createEnabled: sessionState.isModifyEnabled(),
+      modifyEnabled: sessionState.isModifyEnabled(),
+      deleteEnabled: sessionState.isDeleteEnabled(),
     });
   });
 
@@ -345,9 +355,24 @@ export function createApp(
       updated = true;
     }
 
+    if (typeof body.createEnabled === 'boolean') {
+      sessionState.setModifyEnabled(body.createEnabled);
+      updated = true;
+    }
+
+    if (typeof body.modifyEnabled === 'boolean') {
+      sessionState.setModifyEnabled(body.modifyEnabled);
+      updated = true;
+    }
+
+    if (typeof body.deleteEnabled === 'boolean') {
+      sessionState.setDeleteEnabled(body.deleteEnabled);
+      updated = true;
+    }
+
     if (!updated) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: 'uploadEnabled(boolean) or uploadMaxSizeMb(number) is required',
+        error: 'uploadEnabled(boolean), uploadMaxSizeMb(number), createEnabled(boolean), modifyEnabled(boolean), or deleteEnabled(boolean) is required',
         code: 'INVALID_TRANSFER_CONFIG',
       });
       return;
@@ -357,6 +382,9 @@ export function createApp(
       message: 'Transfer settings updated',
       uploadEnabled: sessionState.isUploadEnabled(),
       uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
+      createEnabled: sessionState.isModifyEnabled(),
+      modifyEnabled: sessionState.isModifyEnabled(),
+      deleteEnabled: sessionState.isDeleteEnabled(),
     });
   });
 
@@ -514,8 +542,12 @@ export function createApp(
   app.get('/api/list', requirePin, async (req, res) => {
     const rootId = String(req.query.root || '0');
     const relPath = String(req.query.path || '');
+    const sortByRaw = String(req.query.sortBy || 'name').toLowerCase();
+    const sortDirRaw = String(req.query.sortDir || 'asc').toLowerCase();
+    const sortBy = sortByRaw === 'size' || sortByRaw === 'date' ? sortByRaw : 'name';
+    const sortDir = sortDirRaw === 'desc' ? 'desc' : 'asc';
 
-    const result = await listFilesUseCase.execute(rootId, relPath);
+    const result = await listFilesUseCase.execute(rootId, relPath, sortBy, sortDir);
 
     if (!result.ok) {
       const error = result.error;
@@ -531,7 +563,90 @@ export function createApp(
     res.json({
       root: { id: target.rootId, name: config.roots.find((r) => r.id === target.rootId)?.name },
       path: target.relPath,
+      sortBy,
+      sortDir,
       entries,
+    });
+  });
+
+  /**
+   * POST /api/fs/mkdir - Create directory in current path
+   */
+  app.post('/api/fs/mkdir', requirePin, async (req, res) => {
+    if (!sessionState.isModifyEnabled()) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Create actions are disabled by host',
+        code: 'CREATE_DISABLED',
+      });
+      return;
+    }
+
+    const rootId = String(req.body?.root || req.query.root || '0');
+    const relPath = String(req.body?.path || req.query.path || '');
+    const name = String(req.body?.name || '').trim();
+
+    if (!name) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: 'name is required',
+        code: 'INVALID_DIRECTORY_NAME',
+      });
+      return;
+    }
+
+    const result = await createDirectoryUseCase.execute(rootId, relPath, name);
+    if (!result.ok) {
+      const error = result.error;
+      const statusCode = isDomainError(error) ? error.statusCode : HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      res.status(statusCode).json({
+        error: error.message,
+        code: error.code,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      relPath: result.value.relPath,
+    });
+  });
+
+  /**
+   * DELETE /api/fs/entry - Delete file or directory
+   */
+  app.delete('/api/fs/entry', requirePin, async (req, res) => {
+    if (!sessionState.isDeleteEnabled()) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Delete actions are disabled by host',
+        code: 'DELETE_DISABLED',
+      });
+      return;
+    }
+
+    const rootId = String(req.body?.root || req.query.root || '0');
+    const relPath = String(req.body?.path || req.query.path || '').trim();
+
+    if (!relPath) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: 'path is required',
+        code: 'INVALID_PATH',
+      });
+      return;
+    }
+
+    const result = await deleteEntryUseCase.execute(rootId, relPath);
+    if (!result.ok) {
+      const error = result.error;
+      const statusCode = isDomainError(error) ? error.statusCode : HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      res.status(statusCode).json({
+        error: error.message,
+        code: error.code,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      deletedPath: relPath,
     });
   });
 

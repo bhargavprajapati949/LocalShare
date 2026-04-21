@@ -27,7 +27,9 @@ export class HostSessionState implements HostSessionPort {
   private customDomainName?: string;
   private sessionPin?: string;
   private uploadEnabled = true;
-    private maxUploadSizeMb = 51200;
+  private maxUploadSizeMb = 51200;
+  private modifyEnabled = true;
+  private deleteEnabled = true;
 
   /**
    * Start sharing (idempotent)
@@ -130,9 +132,37 @@ export class HostSessionState implements HostSessionPort {
    * Set maximum upload file size in MB
    */
      public setMaxUploadSizeMb(sizeMb: number): void {
-       const size = Math.max(1, Math.min(51200, Number(sizeMb) || 100));
+      const size = Math.max(1, Math.min(51200, Number(sizeMb) || 100));
     this.maxUploadSizeMb = size;
   }
+
+    /**
+     * Check if modify operations are enabled
+     */
+    public isModifyEnabled(): boolean {
+      return this.modifyEnabled;
+    }
+
+    /**
+     * Toggle modify operations
+     */
+    public setModifyEnabled(enabled: boolean): void {
+      this.modifyEnabled = Boolean(enabled);
+    }
+
+    /**
+     * Check if delete operations are enabled
+     */
+    public isDeleteEnabled(): boolean {
+      return this.deleteEnabled;
+    }
+
+    /**
+     * Toggle delete operations
+     */
+    public setDeleteEnabled(enabled: boolean): void {
+      this.deleteEnabled = Boolean(enabled);
+    }
 }
 
 /**

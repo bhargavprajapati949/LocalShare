@@ -19,6 +19,7 @@ export function renderHomePage(): string {
     <style>
       :root { color-scheme:light; --bg:#f5f7fb; --surface:#ffffff; --text:#152132; --muted:#607086; --accent:#1f6feb; --line:#dae2ee; --danger:#be2d2d; --success:#1f5f28; }
       * { box-sizing:border-box; }
+      [hidden] { display:none !important; }
       body { margin:0; padding:24px; font-family:"Segoe UI","Noto Sans",sans-serif; background:radial-gradient(circle at top right,#dbe9ff,var(--bg) 36%); color:var(--text); min-height:100vh; }
       .card { max-width:960px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:24px; box-shadow:0 10px 30px rgba(20,44,88,0.08); }
       h1 { margin:0 0 4px; font-size:22px; }
@@ -48,6 +49,8 @@ export function renderHomePage(): string {
       .health-list { margin:0; padding-left:16px; color:var(--muted); font-size:12px; }
       .health-list li { margin:4px 0; }
       .browse-row { display:grid; grid-template-columns:minmax(140px,auto) 1fr auto; gap:10px; margin:0 0 10px; }
+      .dir-actions { display:flex; gap:8px; margin:0 0 10px; }
+      .dir-actions input { flex:1; }
       .root-label { border:1px solid var(--line); border-radius:10px; padding:9px 13px; background:#f8fbff; color:var(--muted); font-size:13px; }
       .download-panel { margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
       .download-panel h3 { margin:0 0 8px; font-size:14px; }
@@ -60,6 +63,7 @@ export function renderHomePage(): string {
       .download-meta { display:flex; justify-content:space-between; gap:8px; margin-top:4px; font-size:12px; color:var(--muted); }
       .download-actions { display:flex; gap:8px; margin-top:6px; }
       .download-actions button { padding:5px 8px; font-size:12px; }
+      .btn-compact { padding:6px 10px; font-size:13px; }
       input,select,button { border:1px solid var(--line); border-radius:10px; padding:9px 13px; font-size:14px; font-family:inherit; color:var(--text); background:var(--surface); }
       button { background:var(--accent); border-color:var(--accent); color:#fff; cursor:pointer; white-space:nowrap; }
       button:hover { filter:brightness(0.93); }
@@ -70,9 +74,15 @@ export function renderHomePage(): string {
       .breadcrumb button { background:none; border:none; padding:0 3px; color:var(--accent); font-size:13px; cursor:pointer; }
       .breadcrumb button:hover { text-decoration:underline; filter:none; }
       .list { border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+      .list-header { display:grid; grid-template-columns:minmax(180px,1fr) 90px 160px auto; gap:10px; align-items:center; border-bottom:1px solid var(--line); padding:9px 14px; background:#f8fbff; }
+      .sort-btn { background:none; border:none; padding:0; color:var(--text); font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; }
+      .sort-btn:hover { color:var(--accent); filter:none; }
       .item { display:grid; grid-template-columns:minmax(180px,1fr) 90px 160px auto; gap:10px; align-items:center; border-bottom:1px solid var(--line); padding:9px 14px; }
       .item:last-child { border-bottom:none; }
       .item .name button { color:var(--accent); background:none; border:none; padding:0; font-size:14px; cursor:pointer; }
+      .entry-actions { display:flex; justify-content:flex-end; gap:6px; align-items:center; }
+      .icon-btn { background:var(--surface); color:var(--danger); border:1px solid var(--line); border-radius:8px; padding:4px 8px; font-size:12px; cursor:pointer; }
+      .icon-btn:hover { background:#fff5f5; filter:none; }
       .muted { color:var(--muted); font-size:13px; }
       .mono { font-family:"Menlo","Consolas",monospace; }
       .dl-btn { background:none; border:1px solid var(--accent); color:var(--accent); border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer; white-space:nowrap; min-width:90px; text-align:center; }
@@ -114,25 +124,23 @@ export function renderHomePage(): string {
         </div>
       </div>
       <div class="controls">
-        <button id="startSharing" class="secondary" hidden>&#9654; Start Sharing</button>
+        <button id="startSharing" class="primary" hidden>&#9654; Start Sharing</button>
         <button id="stopSharing" class="danger" hidden>&#9632; Stop Sharing</button>
-        <button id="refreshStatus" class="secondary">&#8635; Refresh Status</button>
         <label class="mode-toggle"><input id="downloadModeToggle" type="checkbox" /> Browser-managed download mode</label>
-      </div>
-      <div class="host-row" id="hostRootRow" hidden>
-        <label for="shareRootPath" class="host-label" style="grid-column:1/-1">Shared directory path</label>
-        <input id="shareRootPath" type="text" placeholder="Absolute directory path to share" autocomplete="off" />
-        <button id="pickShareRoot" class="secondary">Choose Directory</button>
       </div>
       <div class="browse-row">
         <select id="root"></select>
         <div id="rootLabel" class="root-label" hidden></div>
         <input id="pinInput" type="password" inputmode="numeric" placeholder="Session PIN (if required)" autocomplete="off" />
-        <button id="refresh">Browse</button>
+        <button id="refresh" class="primary btn-compact">Refresh</button>
+      </div>
+      <div class="dir-actions" id="dirActions" hidden>
+        <input id="newDirName" type="text" placeholder="New folder name" autocomplete="off" />
+        <button id="createDirBtn" class="secondary">Create Folder</button>
       </div>
       <div class="breadcrumb" id="breadcrumb"></div>
       <div class="list" id="list"></div>
-        <section class="download-panel">
+        <section class="download-panel" id="uploadPanel">
              <h3>Uploads</h3>
              <div style="margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
                <input id="fileInput" type="file" style="flex:1;" />
@@ -146,17 +154,16 @@ export function renderHomePage(): string {
       </section>
     </section>
     <script>
-      const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[],downloadMode:localStorage.getItem("lan_download_mode")==="browser"?"browser":"managed",downloads:new Map(),uploads:new Map(),uploadMaxSizeMb:51200,uploadEnabled:false};
+      const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[],downloadMode:localStorage.getItem("lan_download_mode")==="browser"?"browser":"managed",downloads:new Map(),uploads:new Map(),uploadMaxSizeMb:51200,uploadEnabled:false,createEnabled:false,deleteEnabled:false,sortBy:"name",sortDir:"asc"};
       const listEl=document.getElementById("list"),rootEl=document.getElementById("root"),breadcrumbEl=document.getElementById("breadcrumb"),
             pinInputEl=document.getElementById("pinInput"),refreshEl=document.getElementById("refresh"),
             warningEl=document.getElementById("warning"),sharingStateEl=document.getElementById("sharingState"),
-            hostIpsEl=document.getElementById("hostIps"),refreshStatusEl=document.getElementById("refreshStatus"),
+        hostIpsEl=document.getElementById("hostIps"),
             startSharingEl=document.getElementById("startSharing"),stopSharingEl=document.getElementById("stopSharing"),
         downloadModeToggleEl=document.getElementById("downloadModeToggle"),downloadItemsEl=document.getElementById("downloadItems"),
-           fileInputEl=document.getElementById("fileInput"),uploadBtnEl=document.getElementById("uploadBtn"),uploadItemsEl=document.getElementById("uploadItems"),
-            hostRootRowEl=document.getElementById("hostRootRow"),shareRootPathEl=document.getElementById("shareRootPath"),
-            pickShareRootEl=document.getElementById("pickShareRoot"),
+           fileInputEl=document.getElementById("fileInput"),uploadBtnEl=document.getElementById("uploadBtn"),uploadItemsEl=document.getElementById("uploadItems"),uploadPanelEl=document.getElementById("uploadPanel"),
             rootLabelEl=document.getElementById("rootLabel"),
+            dirActionsEl=document.getElementById("dirActions"),newDirNameEl=document.getElementById("newDirName"),createDirBtnEl=document.getElementById("createDirBtn"),
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
             pinOverlayEl=document.getElementById("pinOverlay"),pinOverlayInputEl=document.getElementById("pinOverlayInput"),
             pinOverlayErrorEl=document.getElementById("pinOverlayError"),pinOverlaySubmitEl=document.getElementById("pinOverlaySubmit");
@@ -217,23 +224,26 @@ export function renderHomePage(): string {
         hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No LAN IPv4 address detected";
         state.sharingActive=Boolean(s.sharingActive);state.canControlHost=Boolean(s.canControlHost);
         state.requiresPin=Boolean(s.requiresPin);state.lanUrls=Array.isArray(s.lanUrls)?s.lanUrls:[];
+        pinInputEl.hidden=!state.requiresPin;
         startSharingEl.hidden=!state.canControlHost||state.sharingActive;
         stopSharingEl.hidden=!state.canControlHost||!state.sharingActive;
-        hostRootRowEl.hidden=!state.canControlHost;
       }
       async function loadQr(){try{const r=await fetch("/api/qr");if(!r.ok)return;const{dataUrl}=await r.json();qrImgEl.src=dataUrl;qrBoxEl.style.visibility="visible";}catch{}}
       async function loadStatus(){
         const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status error");
         const s=await r.json();state.roots=s.roots;
          state.uploadMaxSizeMb=s.uploadMaxSizeMb||51200;state.uploadEnabled=Boolean(s.uploadEnabled);
+         state.createEnabled=Boolean(s.createEnabled ?? s.modifyEnabled);
+         state.deleteEnabled=Boolean(s.deleteEnabled);
+        uploadPanelEl.hidden=!state.uploadEnabled;
         fileInputEl.disabled=!state.uploadEnabled;
         uploadBtnEl.disabled=!state.uploadEnabled||!fileInputEl.files?.length;
+        dirActionsEl.hidden=!state.createEnabled;
         const hasCurrentRoot=s.roots.some((root)=>root.id===state.root);
         state.root=hasCurrentRoot?state.root:((s.roots[0]&&s.roots[0].id)||"");
         renderWarning(s);renderHostSummary(s);rootEl.innerHTML="";
         s.roots.forEach((root)=>{const o=document.createElement("option");o.value=root.id;o.textContent=root.name;if(root.id===state.root)o.selected=true;rootEl.appendChild(o);});
         const activeRoot=s.roots.find((root)=>root.id===state.root);
-        if(activeRoot&&state.canControlHost)shareRootPathEl.value=activeRoot.absPath;
         if(s.roots.length<=1){
           rootEl.hidden=true;
           rootEl.disabled=true;
@@ -581,16 +591,54 @@ export function renderHomePage(): string {
            uploadItemsEl.appendChild(row);
          });
        }
+      function toggleSort(sortBy){
+        if(state.sortBy===sortBy){
+          state.sortDir=state.sortDir==="asc"?"desc":"asc";
+        }else{
+          state.sortBy=sortBy;
+          state.sortDir=sortBy==="name"?"asc":"desc";
+        }
+        loadDirectory();
+      }
+      function renderListHeader(){
+        const header=document.createElement("div");
+        header.className="list-header";
+        const arrow=(k)=>state.sortBy===k?(state.sortDir==="asc"?"↑":"↓"):"";
+        header.innerHTML=
+          '<button class="sort-btn" data-sort="name">Name '+arrow("name")+'</button>'+
+          '<button class="sort-btn hide-sm" data-sort="size">Size '+arrow("size")+'</button>'+
+          '<button class="sort-btn hide-sm" data-sort="date">Modified '+arrow("date")+'</button>'+
+          '<span class="muted" style="text-align:right">Actions</span>';
+        header.querySelectorAll("button[data-sort]").forEach((btn)=>{
+          btn.addEventListener("click",()=>toggleSort(btn.getAttribute("data-sort")));
+        });
+        listEl.appendChild(header);
+      }
+      async function createDirectory(){
+        const name=newDirNameEl.value.trim();
+        if(!name){alert("Enter a folder name");return;}
+        const resp=await fetch(apiUrl("/api/fs/mkdir",{pin:currentPin()}),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({root:state.root,path:state.path,name})});
+        if(!resp.ok){const e=await resp.json().catch(()=>({error:"Failed to create folder"}));alert(e.error||"Failed to create folder");return;}
+        newDirNameEl.value="";
+        await loadDirectory();
+      }
+      async function deleteEntry(relPath,name){
+        if(!confirm('Delete "'+name+'"? This cannot be undone.'))return;
+        const resp=await fetch(apiUrl("/api/fs/entry",{root:state.root,path:relPath,pin:currentPin()}),{method:"DELETE"});
+        if(!resp.ok){const e=await resp.json().catch(()=>({error:"Failed to delete"}));alert(e.error||"Failed to delete");return;}
+        await loadDirectory();
+      }
       async function loadDirectory(){
         if(!state.sharingActive){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Sharing is stopped. Start sharing to browse.</span></div>';breadcrumbEl.innerHTML="";return;}
         state.pin=pinInputEl.value.trim()||storedPin();
         if(state.requiresPin&&!state.pin){showPinGate();return;}
-        const resp=await fetch(apiUrl("/api/list",{root:state.root,path:state.path,pin:state.pin}));
+        const resp=await fetch(apiUrl("/api/list",{root:state.root,path:state.path,pin:state.pin,sortBy:state.sortBy,sortDir:state.sortDir}));
         if(resp.status===401){clearPin();showPinGate();return;}
         if(!resp.ok){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Failed to load. Check root/path/PIN.</span></div>';return;}
         const payload=await resp.json();savePin(state.pin);
         const rootName=(state.roots.find((r)=>r.id===state.root)||{}).name||"root";
         renderBreadcrumb(rootName,payload.path);listEl.innerHTML="";
+        renderListHeader();
         if(payload.path){
           const pp=payload.path.includes("/")?payload.path.split("/").slice(0,-1).join("/"):"";
           const row=document.createElement("div");row.className="item";
@@ -602,47 +650,35 @@ export function renderHomePage(): string {
           const nameCell=entry.isDirectory?'<div class="name"><button>&#128193; '+entry.name+'/</button></div>':'<div class="name"><span>&#128196; '+entry.name+'</span></div>';
           const sizeCell='<div class="muted hide-sm">'+(entry.isDirectory?"\u2014":formatBytes(entry.size))+'</div>';
           const dateCell='<div class="muted hide-sm">'+new Date(entry.modifiedAt).toLocaleString()+'</div>';
-          const actionCell=entry.isDirectory?'<div data-dl-path="'+entry.relPath+'"><button class="dl-btn">\u2193 ZIP</button><div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>':'<div data-dl-path="'+entry.relPath+'">'+'<button class="dl-btn">\u2193 Download</button>'+'<div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>';
+          const delBtn=state.deleteEnabled?'<button class="icon-btn" data-delete="'+entry.relPath+'" data-name="'+entry.name+'">Delete</button>':'';
+          const actionCell=entry.isDirectory?'<div class="entry-actions" data-dl-path="'+entry.relPath+'"><button class="dl-btn">\u2193 ZIP</button>'+delBtn+'<div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>':'<div class="entry-actions" data-dl-path="'+entry.relPath+'">'+'<button class="dl-btn">\u2193 Download</button>'+delBtn+'<div class="progress-bar-wrap"><div class="progress-bar"></div></div></div>';
           row.innerHTML=nameCell+sizeCell+dateCell+actionCell;
           if(entry.isDirectory){row.querySelector("button").addEventListener("click",()=>{state.path=entry.relPath;loadDirectory();});row.querySelector(".dl-btn").addEventListener("click",()=>downloadDirectory(entry.relPath));}
           else row.querySelector(".dl-btn").addEventListener("click",()=>downloadFile(entry.relPath));
+          const deleteBtn=row.querySelector("button[data-delete]");
+          if(deleteBtn)deleteBtn.addEventListener("click",()=>deleteEntry(entry.relPath,entry.name));
           listEl.appendChild(row);
         });
-        if(!payload.entries.length&&!payload.path)listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span class="muted">This folder is empty.</span></div>';
+        if(!payload.entries.length&&!payload.path){
+          const row=document.createElement("div");row.className="item";
+          row.innerHTML='<div style="grid-column:1/-1"><span class="muted">This folder is empty.</span></div>';
+          listEl.appendChild(row);
+        }
       }
       async function sendHostControl(action){
         const r=await fetch(apiUrl("/api/host/"+action),{method:"POST"});
         if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Host control failed");return;}
         await loadStatus();await loadDirectory();
       }
-      async function applySharedDirectory(){
-        const absPath=shareRootPathEl.value.trim();
-        if(!absPath){alert("Enter an absolute directory path");return;}
-        const r=await fetch(apiUrl("/api/host/share-root"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({absPath})});
-        if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed to update shared directory");return;}
-        state.path="";
-        await loadStatus();
-        await loadDirectory();
-      }
-      async function pickSharedDirectory(){
-        const r=await fetch(apiUrl("/api/host/pick-share-root"),{method:"POST"});
-        if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Directory picker failed");return;}
-        const payload=await r.json();
-        if(payload&&payload.absPath)shareRootPathEl.value=payload.absPath;
-        state.path="";
-        await loadStatus();
-        await loadDirectory();
-      }
       rootEl.addEventListener("change",()=>{state.root=rootEl.value;state.path="";loadDirectory();});
-      refreshEl.addEventListener("click",()=>{state.path="";loadDirectory();});
-      refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadDirectory();});
+      refreshEl.addEventListener("click",async()=>{state.path="";await loadStatus();await loadDirectory();});
       startSharingEl.addEventListener("click",()=>sendHostControl("start"));
       stopSharingEl.addEventListener("click",()=>sendHostControl("stop"));
-      pickShareRootEl.addEventListener("click",pickSharedDirectory);
-      shareRootPathEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")applySharedDirectory();});
       downloadModeToggleEl.addEventListener("change",()=>setDownloadMode(downloadModeToggleEl.checked?"browser":"managed"));
       fileInputEl.addEventListener("change",handleFileSelect);
       uploadBtnEl.addEventListener("click",uploadFile);
+      createDirBtnEl.addEventListener("click",createDirectory);
+      newDirNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")createDirectory();});
       (async()=>{setDownloadMode(state.downloadMode);renderDownloadPanel();renderUploadPanel();await loadStatus();loadQr();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();
     </script>
   </body>
@@ -672,6 +708,7 @@ export function renderAdminUI(): string {
     <style>
       :root { color-scheme:light; --bg:#f5f7fb; --surface:#ffffff; --text:#152132; --muted:#607086; --accent:#1f6feb; --line:#dae2ee; --danger:#be2d2d; --success:#1f5f28; }
       * { box-sizing:border-box; }
+      [hidden] { display:none !important; }
       body { margin:0; padding:24px; font-family:"Segoe UI","Noto Sans",sans-serif; background:radial-gradient(circle at top right,#dbe9ff,var(--bg) 36%); color:var(--text); min-height:100vh; }
       .card { max-width:960px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:24px; box-shadow:0 10px 30px rgba(20,44,88,0.08); }
       h1 { margin:0 0 4px; font-size:22px; }
@@ -723,9 +760,15 @@ export function renderAdminUI(): string {
       </div>
       <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
         <h2 style="margin:0 0 12px;font-size:16px;">Upload Configuration</h2>
-        <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Control whether clients can upload files and set the maximum upload size.</p>
+        <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Control upload/create/delete permissions and maximum upload size.</p>
         <div style="margin:0 0 10px;">
-          <label class="mode-toggle"><input id="uploadEnabled" type="checkbox" /> Allow client uploads</label>
+          <label class="mode-toggle"><input id="uploadEnabled" type="checkbox" /> Allow client upload actions</label>
+        </div>
+        <div style="margin:0 0 10px;">
+          <label class="mode-toggle"><input id="createEnabled" type="checkbox" /> Allow create actions</label>
+        </div>
+        <div style="margin:0 0 10px;">
+          <label class="mode-toggle"><input id="deleteEnabled" type="checkbox" /> Allow delete actions</label>
         </div>
         <div class="host-row">
           <label for="uploadMaxSizeMb" class="host-label" style="grid-column:1/-1">Maximum upload size (MB)</label>
@@ -768,7 +811,7 @@ export function renderAdminUI(): string {
             stopSharingEl=document.getElementById("stopSharing"),shareRootPathEl=document.getElementById("shareRootPath"),
             pickShareRootEl=document.getElementById("pickShareRoot"),warningEl=document.getElementById("warning"),
             qrBoxEl=document.getElementById("qrBox"),qrImgEl=document.getElementById("qrImg"),
-        uploadEnabledEl=document.getElementById("uploadEnabled"),uploadMaxSizeMbEl=document.getElementById("uploadMaxSizeMb"),
+        uploadEnabledEl=document.getElementById("uploadEnabled"),createEnabledEl=document.getElementById("createEnabled"),deleteEnabledEl=document.getElementById("deleteEnabled"),uploadMaxSizeMbEl=document.getElementById("uploadMaxSizeMb"),
         saveTransferEl=document.getElementById("saveTransfer"),transferStatusEl=document.getElementById("transferStatus"),
             openClientUIEl=document.getElementById("openClientUI"),domainNameEl=document.getElementById("domainName"),
             saveDomainEl=document.getElementById("saveDomain"),domainStatusEl=document.getElementById("domainStatus"),
@@ -784,6 +827,8 @@ export function renderAdminUI(): string {
           if(!r.ok)throw new Error("Transfer settings failed");
           const data=await r.json();
           uploadEnabledEl.checked=Boolean(data.uploadEnabled);
+          createEnabledEl.checked=Boolean(data.createEnabled ?? data.modifyEnabled);
+          deleteEnabledEl.checked=Boolean(data.deleteEnabled);
           uploadMaxSizeMbEl.value=String(data.uploadMaxSizeMb||51200);
         }catch{
           transferStatusEl.textContent="Failed to load upload settings.";
@@ -798,7 +843,7 @@ export function renderAdminUI(): string {
           transferStatusEl.textContent="Max upload size must be between 1 and 51200 MB.";
           return;
         }
-        const payload={uploadEnabled:Boolean(uploadEnabledEl.checked),uploadMaxSizeMb:Math.round(maxSizeMb)};
+        const payload={uploadEnabled:Boolean(uploadEnabledEl.checked),createEnabled:Boolean(createEnabledEl.checked),deleteEnabled:Boolean(deleteEnabledEl.checked),uploadMaxSizeMb:Math.round(maxSizeMb)};
         const r=await fetch("/api/host/transfer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
         if(!r.ok){
           const e=await r.json().catch(()=>({error:"Failed"}));
@@ -807,6 +852,8 @@ export function renderAdminUI(): string {
         }
         const data=await r.json();
         uploadEnabledEl.checked=Boolean(data.uploadEnabled);
+        createEnabledEl.checked=Boolean(data.createEnabled ?? data.modifyEnabled);
+        deleteEnabledEl.checked=Boolean(data.deleteEnabled);
         uploadMaxSizeMbEl.value=String(data.uploadMaxSizeMb||51200);
         transferStatusEl.textContent="Upload settings saved.";
       }

@@ -7,7 +7,7 @@ Status values:
 
 ## Features
 
-### Hosting and Session
+### Hosting and Session - done
 - Start/stop host server - done
 - Select shared root folders - done
 - Host status and open-mode warning - done
@@ -25,15 +25,15 @@ Status values:
 - Upload files to host - done
 - Upload directories to host - todo
 
-### File Browsing
+### File Browsing - done
 - Browser directory listing - done
-- Add sortable file list headers (name/size/date asc/desc) - todo
-- Create directory from UI - todo
-- Delete file or directory from UI - todo
-- Admin permission toggle for modify access - todo
-- Admin permission toggle for delete access - todo
+- Add sortable file list headers (name/size/date asc/desc) - done
+- Create directory from UI - done
+- Delete file or directory from UI - done
+- Admin permission toggle for modify access - done
+- Admin permission toggle for delete access - done
 
-### Discovery and Connectivity
+### Discovery and Connectivity - done
 - QR share - done
 - mDNS discovery - done
 - Host-configured custom local domain name for LAN access - done
@@ -46,10 +46,6 @@ Status values:
 - Read/write policies - todo
 - Trusted devices - todo
 - Logs and session control - todo
-
-### Distribution
-- Multi-platform packaging quality - done
-- Distribution strategy and install/run flow across platforms - inprogress
 
 ### Power User and Extensibility
 - CLI mode - todo

@@ -74,6 +74,19 @@ export interface FileSystemPort {
    * @returns Result with the saved file path or error
    */
   saveUploadedFile(targetDir: ResolvedTarget, filename: string, data: Buffer): Promise<Result<{ absPath: string; relPath: string }>>;
+
+  /**
+   * Create a directory under a resolved parent directory
+   * @param targetDir - Parent directory target
+   * @param name - Directory name (single path segment)
+   */
+  createDirectory(targetDir: ResolvedTarget, name: string): Promise<Result<{ absPath: string; relPath: string }>>;
+
+  /**
+   * Delete file or directory recursively
+   * @param target - File or directory target
+   */
+  deleteEntry(target: ResolvedTarget): Promise<Result<void>>;
 }
 
 /**
@@ -183,4 +196,24 @@ export interface HostSessionPort {
    * Set maximum upload file size in MB (1-2048 MB)
    */
   setMaxUploadSizeMb(sizeMb: number): void;
+
+  /**
+   * Check whether client-side modify operations are enabled (create/upload)
+   */
+  isModifyEnabled(): boolean;
+
+  /**
+   * Enable or disable client-side modify operations
+   */
+  setModifyEnabled(enabled: boolean): void;
+
+  /**
+   * Check whether delete operations are enabled
+   */
+  isDeleteEnabled(): boolean;
+
+  /**
+   * Enable or disable delete operations
+   */
+  setDeleteEnabled(enabled: boolean): void;
 }
