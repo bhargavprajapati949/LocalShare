@@ -39,7 +39,7 @@ Typical outputs:
 
 - release/localshare-linux-x64
 - release/localshare-macos-arm64
-- release/localshare-macos-x64
+- release/localshare-macos-x64-intel
 - release/localshare-win-x64.exe
 
 ## Consumer Run Instructions
