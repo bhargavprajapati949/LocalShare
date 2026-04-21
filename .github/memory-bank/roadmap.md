@@ -17,13 +17,13 @@ Status values:
 ### Downloading
 - File download - done
 - Directory download (ZIP archive) - done
-- Add pause/start/cancel controls for downloads - todo
+- Add pause/start/cancel controls for downloads - done
 - Allow directory download even when host free disk is low by streaming archive generation - done
-- Parallel chunk downloading for faster transfers - todo
+- Parallel chunk downloading for faster transfers - done
 
 ### Uploading
 - Upload files to host - done
-- Upload directories to host - todo
+- Upload directories to host - done
 
 ### File Browsing - done
 - Browser directory listing - done
@@ -42,7 +42,7 @@ Status values:
 ### Security and Access
 - Session PIN support - done
 - Remove client UI controls that should be host-only (shared roots, PIN settings) - done
-- Read/write policies - todo
+- Read/write policies - done
 - Trusted devices - todo
 - Logs and session control - todo
 

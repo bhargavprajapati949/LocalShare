@@ -234,6 +234,16 @@ export interface HostSessionPort {
   setDeleteEnabled(enabled: boolean): void;
 
   /**
+   * Check whether read operations are enabled (list/download)
+   */
+  isReadEnabled(): boolean;
+
+  /**
+   * Enable or disable read operations (list/download)
+   */
+  setReadEnabled(enabled: boolean): void;
+
+  /**
    * Check whether WebDAV mode is enabled
    */
   isWebdavEnabled(): boolean;

@@ -310,3 +310,110 @@ test('modify/delete toggles are enforced by APIs', async () => {
       .expect(403);
   });
 });
+
+test('transfer settings include read policy and persist updates', async () => {
+  await withTempRoot(async (rootPath) => {
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+    const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+
+    const before = await request(app).get('/api/host/transfer').expect(200);
+    assert.equal(before.body.readEnabled, true);
+
+    const updated = await request(app)
+      .post('/api/host/transfer')
+      .send({ readEnabled: false })
+      .expect(200);
+
+    assert.equal(updated.body.readEnabled, false);
+  });
+});
+
+test('read policy blocks list and download endpoints when disabled', async () => {
+  await withTempRoot(async (rootPath) => {
+    await fsp.writeFile(path.join(rootPath, 'sample.txt'), 'hello-world');
+    await fsp.mkdir(path.join(rootPath, 'dir-a'));
+    await fsp.writeFile(path.join(rootPath, 'dir-a', 'inside.txt'), 'x');
+
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+    const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+
+    await request(app)
+      .post('/api/host/transfer')
+      .send({ readEnabled: false })
+      .expect(200);
+
+    await request(app).get('/api/list?root=0&path=').expect(403);
+    await request(app).get('/api/download?root=0&path=sample.txt').expect(403);
+    await request(app).get('/api/download-directory?root=0&path=dir-a').expect(403);
+  });
+});
+
+test('granular write permissions block upload/create/delete independently', async () => {
+  await withTempRoot(async (rootPath) => {
+    await fsp.writeFile(path.join(rootPath, 'to-delete.txt'), 'x');
+
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+    const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+
+    await request(app)
+      .post('/api/host/transfer')
+      .send({ uploadEnabled: false, createEnabled: false, deleteEnabled: false })
+      .expect(200);
+
+    await request(app)
+      .post('/api/fs/mkdir')
+      .send({ root: '0', path: '', name: 'blocked' })
+      .expect(403);
+
+    await request(app)
+      .delete('/api/fs/entry?root=0&path=to-delete.txt')
+      .expect(403);
+
+    await request(app)
+      .post('/api/upload/resumable/init')
+      .send({ filename: 'x.txt', size: 1, root: '0', path: '' })
+      .expect(403);
+  });
+});

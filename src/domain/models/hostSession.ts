@@ -30,6 +30,7 @@ export class HostSessionState implements HostSessionPort {
   private maxUploadSizeMb = 51200;
   private modifyEnabled = true;
   private deleteEnabled = true;
+  private readEnabled = true;
   private webdavEnabled = true;
 
   /**
@@ -163,6 +164,20 @@ export class HostSessionState implements HostSessionPort {
      */
     public setDeleteEnabled(enabled: boolean): void {
       this.deleteEnabled = Boolean(enabled);
+    }
+
+    /**
+     * Check if read operations are enabled
+     */
+    public isReadEnabled(): boolean {
+      return this.readEnabled;
+    }
+
+    /**
+     * Toggle read operations
+     */
+    public setReadEnabled(enabled: boolean): void {
+      this.readEnabled = Boolean(enabled);
     }
 
     /**

@@ -124,6 +124,7 @@ export function createApp(
       mdnsEnabled: config.mdnsEnabled,
       uploadEnabled: sessionState.isUploadEnabled(),
       uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
+      readEnabled: sessionState.isReadEnabled(),
       createEnabled: sessionState.isModifyEnabled(),
       modifyEnabled: sessionState.isModifyEnabled(),
       deleteEnabled: sessionState.isDeleteEnabled(),
@@ -340,6 +341,7 @@ export function createApp(
     res.json({
       uploadEnabled: sessionState.isUploadEnabled(),
       uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
+      readEnabled: sessionState.isReadEnabled(),
       createEnabled: sessionState.isModifyEnabled(),
       modifyEnabled: sessionState.isModifyEnabled(),
       deleteEnabled: sessionState.isDeleteEnabled(),
@@ -356,6 +358,11 @@ export function createApp(
 
     if (typeof body.uploadEnabled === 'boolean') {
       sessionState.setUploadEnabled(body.uploadEnabled);
+      updated = true;
+    }
+
+    if (typeof body.readEnabled === 'boolean') {
+      sessionState.setReadEnabled(body.readEnabled);
       updated = true;
     }
 
@@ -386,7 +393,7 @@ export function createApp(
 
     if (!updated) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: 'uploadEnabled(boolean), uploadMaxSizeMb(number), createEnabled(boolean), modifyEnabled(boolean), deleteEnabled(boolean), or webdavEnabled(boolean) is required',
+        error: 'uploadEnabled(boolean), uploadMaxSizeMb(number), readEnabled(boolean), createEnabled(boolean), modifyEnabled(boolean), deleteEnabled(boolean), or webdavEnabled(boolean) is required',
         code: 'INVALID_TRANSFER_CONFIG',
       });
       return;
@@ -396,6 +403,7 @@ export function createApp(
       message: 'Transfer settings updated',
       uploadEnabled: sessionState.isUploadEnabled(),
       uploadMaxSizeMb: sessionState.getMaxUploadSizeMb(),
+      readEnabled: sessionState.isReadEnabled(),
       createEnabled: sessionState.isModifyEnabled(),
       modifyEnabled: sessionState.isModifyEnabled(),
       deleteEnabled: sessionState.isDeleteEnabled(),
@@ -555,6 +563,14 @@ export function createApp(
    * GET /api/list - List directory contents
    */
   app.get('/api/list', requirePin, async (req, res) => {
+    if (!sessionState.isReadEnabled()) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Read operations are disabled by host',
+        code: 'READ_DISABLED',
+      });
+      return;
+    }
+
     const rootId = String(req.query.root || '0');
     const relPath = String(req.query.path || '');
     const sortByRaw = String(req.query.sortBy || 'name').toLowerCase();
@@ -669,6 +685,14 @@ export function createApp(
    * GET /api/download - Download a file
    */
   app.get('/api/download', requirePin, async (req, res) => {
+    if (!sessionState.isReadEnabled()) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Read operations are disabled by host',
+        code: 'READ_DISABLED',
+      });
+      return;
+    }
+
     const rootId = String(req.query.root || '0');
     const relPath = String(req.query.path || '');
 
@@ -756,6 +780,14 @@ export function createApp(
    * GET /api/download-directory - Download a directory as ZIP
    */
   app.get('/api/download-directory', requirePin, async (req, res) => {
+    if (!sessionState.isReadEnabled()) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        error: 'Read operations are disabled by host',
+        code: 'READ_DISABLED',
+      });
+      return;
+    }
+
     const rootId = String(req.query.root || '0');
     const relPath = String(req.query.path || '');
 

@@ -222,6 +222,11 @@ export function createDavRouter(
   router.use(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const method = req.method.toUpperCase();
 
+    if ((method === 'PROPFIND' || method === 'GET' || method === 'HEAD') && !sessionState.isReadEnabled()) {
+      res.status(403).end('Read operations are disabled by host');
+      return;
+    }
+
     if (method === 'OPTIONS') {
       res.setHeader('DAV', '1, 2');
       res.setHeader('Allow', 'OPTIONS, PROPFIND, GET, HEAD, PUT, MKCOL, DELETE, COPY, MOVE, LOCK, UNLOCK');
