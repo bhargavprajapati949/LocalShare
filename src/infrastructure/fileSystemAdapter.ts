@@ -281,6 +281,78 @@ export class FileSystemAdapter implements FileSystemPort {
   }
 
   /**
+   * Copy a file or directory to a destination path.
+   */
+  async copyEntry(source: ResolvedTarget, destAbsPath: string, overwrite: boolean): Promise<Result<void>> {
+    try {
+      if (!overwrite) {
+        try {
+          await fsp.stat(destAbsPath);
+          // Destination exists and overwrite is false
+          return err(new FileAccessError('Destination already exists'));
+        } catch (statErr) {
+          if ((statErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+            return err(new FileAccessError('Failed to check destination'));
+          }
+          // ENOENT is fine — destination does not exist
+        }
+      }
+
+      await fsp.cp(source.absPath, destAbsPath, { recursive: true, force: overwrite });
+      return ok(undefined);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') return err(new FileNotFoundError('Source not found'));
+        if (code === 'EACCES') return err(new FileAccessError('Permission denied'));
+      }
+      return err(new FileAccessError('Failed to copy entry'));
+    }
+  }
+
+  /**
+   * Move (rename) a file or directory to a destination path.
+   */
+  async moveEntry(source: ResolvedTarget, destAbsPath: string, overwrite: boolean): Promise<Result<void>> {
+    try {
+      if (!overwrite) {
+        try {
+          await fsp.stat(destAbsPath);
+          return err(new FileAccessError('Destination already exists'));
+        } catch (statErr) {
+          if ((statErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+            return err(new FileAccessError('Failed to check destination'));
+          }
+        }
+      }
+
+      // Ensure destination parent directory exists
+      await fsp.mkdir(path.dirname(destAbsPath), { recursive: true });
+
+      // Try atomic rename first (same filesystem); fall back to copy+delete
+      try {
+        await fsp.rename(source.absPath, destAbsPath);
+      } catch (renameErr) {
+        if ((renameErr as NodeJS.ErrnoException).code === 'EXDEV') {
+          await fsp.cp(source.absPath, destAbsPath, { recursive: true, force: overwrite });
+          await fsp.rm(source.absPath, { recursive: true, force: false });
+        } else {
+          throw renameErr;
+        }
+      }
+
+      return ok(undefined);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') return err(new FileNotFoundError('Source not found'));
+        if (code === 'EACCES') return err(new FileAccessError('Permission denied'));
+      }
+      return err(new FileAccessError('Failed to move entry'));
+    }
+  }
+
+  /**
    * Validate and sanitize relative path
    * @param relPath - Relative path from user
    * @returns Sanitized path or error

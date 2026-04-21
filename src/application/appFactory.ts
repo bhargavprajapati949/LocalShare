@@ -28,6 +28,7 @@ import type { UploadFileUseCase } from './useCases/uploadFile';
 import type { CreateDirectoryUseCase } from './useCases/createDirectory';
 import type { DeleteEntryUseCase } from './useCases/deleteEntry';
 import { isDomainError } from '../domain/errors';
+import { createDavRouter } from '../interface/webdavRouter';
 
 /**
  * HTTP status codes for error responses
@@ -63,6 +64,7 @@ interface AppContext {
  * Create Express application with injected dependencies
  * @param config - Application configuration
  * @param sessionState - Host session (injectable for testing)
+ * @param fileSystem - File system port implementation
  * @param listFilesUseCase - Use case for directory listing
  * @param downloadFileUseCase - Use case for file download
  * @param downloadDirectoryUseCase - Use case for directory download as ZIP
@@ -72,6 +74,7 @@ interface AppContext {
 export function createApp(
   config: AppConfig,
   sessionState: HostSessionPort,
+  fileSystem: FileSystemPort,
   listFilesUseCase: ListFilesUseCase,
   downloadFileUseCase: DownloadFileUseCase,
   downloadDirectoryUseCase: DownloadDirectoryUseCase,
@@ -84,6 +87,9 @@ export function createApp(
   const resumableUploads = new Map<string, ResumableUploadSession>();
   const uploadTmpDir = path.join(os.tmpdir(), 'lan-file-host-uploads');
   const CHUNK_UPLOAD_LIMIT_BYTES = 8 * 1024 * 1024;
+
+  // Mount WebDAV before CORS so DAV methods/options are handled by DAV semantics.
+  app.use('/dav', createDavRouter(fileSystem, sessionState, config, '/dav'));
 
   app.use(cors());
   app.use(express.json());
@@ -121,6 +127,8 @@ export function createApp(
       createEnabled: sessionState.isModifyEnabled(),
       modifyEnabled: sessionState.isModifyEnabled(),
       deleteEnabled: sessionState.isDeleteEnabled(),
+      webdavEnabled: sessionState.isWebdavEnabled(),
+      webdavUrls: lanAddresses.map((ip) => `http://${ip}:${config.port}/dav/0/`),
     };
   }
 
@@ -335,6 +343,7 @@ export function createApp(
       createEnabled: sessionState.isModifyEnabled(),
       modifyEnabled: sessionState.isModifyEnabled(),
       deleteEnabled: sessionState.isDeleteEnabled(),
+      webdavEnabled: sessionState.isWebdavEnabled(),
     });
   });
 
@@ -370,9 +379,14 @@ export function createApp(
       updated = true;
     }
 
+    if (typeof body.webdavEnabled === 'boolean') {
+      sessionState.setWebdavEnabled(body.webdavEnabled);
+      updated = true;
+    }
+
     if (!updated) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: 'uploadEnabled(boolean), uploadMaxSizeMb(number), createEnabled(boolean), modifyEnabled(boolean), or deleteEnabled(boolean) is required',
+        error: 'uploadEnabled(boolean), uploadMaxSizeMb(number), createEnabled(boolean), modifyEnabled(boolean), deleteEnabled(boolean), or webdavEnabled(boolean) is required',
         code: 'INVALID_TRANSFER_CONFIG',
       });
       return;
@@ -385,6 +399,7 @@ export function createApp(
       createEnabled: sessionState.isModifyEnabled(),
       modifyEnabled: sessionState.isModifyEnabled(),
       deleteEnabled: sessionState.isDeleteEnabled(),
+      webdavEnabled: sessionState.isWebdavEnabled(),
     });
   });
 

@@ -82,6 +82,7 @@ function main(): void {
   const { app } = createApp(
     config,
     sessionState,
+    fileSystem,
     listFilesUseCase,
     downloadFileUseCase,
     downloadDirectoryUseCase,

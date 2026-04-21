@@ -30,6 +30,7 @@ export class HostSessionState implements HostSessionPort {
   private maxUploadSizeMb = 51200;
   private modifyEnabled = true;
   private deleteEnabled = true;
+  private webdavEnabled = true;
 
   /**
    * Start sharing (idempotent)
@@ -162,6 +163,20 @@ export class HostSessionState implements HostSessionPort {
      */
     public setDeleteEnabled(enabled: boolean): void {
       this.deleteEnabled = Boolean(enabled);
+    }
+
+    /**
+     * Check if WebDAV mode is enabled
+     */
+    public isWebdavEnabled(): boolean {
+      return this.webdavEnabled;
+    }
+
+    /**
+     * Toggle WebDAV mode
+     */
+    public setWebdavEnabled(enabled: boolean): void {
+      this.webdavEnabled = Boolean(enabled);
     }
 }
 

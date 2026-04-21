@@ -87,6 +87,22 @@ export interface FileSystemPort {
    * @param target - File or directory target
    */
   deleteEntry(target: ResolvedTarget): Promise<Result<void>>;
+
+  /**
+   * Copy a file or directory to a destination within the same root
+   * @param source - Resolved source target
+   * @param destAbsPath - Absolute destination path (already validated to be in root)
+   * @param overwrite - Whether to overwrite existing destination
+   */
+  copyEntry(source: ResolvedTarget, destAbsPath: string, overwrite: boolean): Promise<Result<void>>;
+
+  /**
+   * Move (rename) a file or directory to a destination within the same root
+   * @param source - Resolved source target
+   * @param destAbsPath - Absolute destination path (already validated to be in root)
+   * @param overwrite - Whether to overwrite existing destination
+   */
+  moveEntry(source: ResolvedTarget, destAbsPath: string, overwrite: boolean): Promise<Result<void>>;
 }
 
 /**
@@ -216,4 +232,14 @@ export interface HostSessionPort {
    * Enable or disable delete operations
    */
   setDeleteEnabled(enabled: boolean): void;
+
+  /**
+   * Check whether WebDAV mode is enabled
+   */
+  isWebdavEnabled(): boolean;
+
+  /**
+   * Enable or disable WebDAV mode
+   */
+  setWebdavEnabled(enabled: boolean): void;
 }

@@ -41,7 +41,6 @@ Status values:
 
 ### Security and Access
 - Session PIN support - done
-- Session PIN behavior documentation (how current implementation works) - todo
 - Remove client UI controls that should be host-only (shared roots, PIN settings) - done
 - Read/write policies - todo
 - Trusted devices - todo
@@ -49,7 +48,7 @@ Status values:
 
 ### Power User and Extensibility
 - CLI mode - todo
-- WebDAV mode - todo
+- WebDAV mode - done
 - Extensibility and automation - todo
 
 ## Bugs

@@ -55,7 +55,7 @@ test('status includes host ip candidates and sharing state', async () => {
     const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
     const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
     const response = await request(app).get('/api/status').expect(200);
 
     assert.equal(response.body.sharingActive, true);
@@ -91,7 +91,7 @@ test('list route blocks while host sharing is stopped and resumes after start', 
     const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
     const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
     await request(app).post('/api/host/stop').expect(200);
     await request(app).get('/api/list?root=0&path=').expect(503);
@@ -136,7 +136,7 @@ test('host can update shared root at runtime and clients see new directory', asy
       const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
       const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
       const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
-      const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+      const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
       const before = await request(app).get('/api/list?root=0&path=').expect(200);
       assert.equal(
@@ -191,7 +191,7 @@ test('download endpoint supports HTTP range requests for resumable downloads', a
     const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
     const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
 
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
     const response = await request(app)
       .get('/api/download?root=0&path=sample.txt')
@@ -225,7 +225,7 @@ test('list route supports sorting by name/size/date', async () => {
     const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
     const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
     const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
     const byName = await request(app).get('/api/list?root=0&path=&sortBy=name&sortDir=asc').expect(200);
     assert.equal(byName.body.entries[0].name, 'a-file.txt');
@@ -255,7 +255,7 @@ test('can create and delete directory via file browsing APIs', async () => {
     const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
     const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
     const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
     await request(app)
       .post('/api/fs/mkdir')
@@ -293,7 +293,7 @@ test('modify/delete toggles are enforced by APIs', async () => {
     const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
     const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
     const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
-    const { app } = createApp(config, sessionState, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
 
     await request(app)
       .post('/api/host/transfer')

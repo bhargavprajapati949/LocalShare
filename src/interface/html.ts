@@ -792,6 +792,16 @@ export function renderAdminUI(): string {
         <p id="pinSaveStatus" style="margin:8px 0 0;color:var(--muted);font-size:12px;"></p>
       </div>
       <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+        <h2 style="margin:0 0 12px;font-size:16px;">WebDAV Mode</h2>
+        <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Use WebDAV clients (Finder, Files app, Cyberduck, etc.) with these URLs. Toggle availability for clients here.</p>
+        <div style="margin:0 0 10px;">
+          <label class="mode-toggle"><input id="webdavEnabled" type="checkbox" /> Enable WebDAV mode</label>
+        </div>
+        <div id="webdavStatus" style="margin:0 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--muted);">Loading&hellip;</div>
+        <div id="webdavUrls" class="mono" style="margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:12px;white-space:pre-wrap;color:var(--text);">Loading&hellip;</div>
+        <button id="saveWebdav" class="secondary">Save WebDAV Setting</button>
+      </div>
+      <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
         <h2 style="margin:0 0 12px;font-size:16px;">Client Access</h2>
         <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">Open the client UI below to access files from any device on the LAN.</p>
         <button id="openClientUI" class="secondary">Open Client UI</button>
@@ -819,7 +829,7 @@ export function renderAdminUI(): string {
       </div>
     </section>
     <script>
-      const state={sharingActive:true};
+      const state={sharingActive:true,webdavUrls:[]};
       const sharingStateEl=document.getElementById("sharingState"),hostIpsEl=document.getElementById("hostIps"),
             refreshStatusEl=document.getElementById("refreshStatus"),startSharingEl=document.getElementById("startSharing"),
             stopSharingEl=document.getElementById("stopSharing"),shareRootPathEl=document.getElementById("shareRootPath"),
@@ -829,12 +839,13 @@ export function renderAdminUI(): string {
         saveTransferEl=document.getElementById("saveTransfer"),transferStatusEl=document.getElementById("transferStatus"),
             pinStatusBoxEl=document.getElementById("pinStatusBox"),pinValueEl=document.getElementById("pinValue"),
             savePinBtnEl=document.getElementById("savePinBtn"),clearPinBtnEl=document.getElementById("clearPinBtn"),pinSaveStatusEl=document.getElementById("pinSaveStatus"),
+            webdavEnabledEl=document.getElementById("webdavEnabled"),saveWebdavEl=document.getElementById("saveWebdav"),webdavStatusEl=document.getElementById("webdavStatus"),webdavUrlsEl=document.getElementById("webdavUrls"),
             openClientUIEl=document.getElementById("openClientUI"),domainNameEl=document.getElementById("domainName"),
             saveDomainEl=document.getElementById("saveDomain"),domainStatusEl=document.getElementById("domainStatus"),
             healthDomainEl=document.getElementById("healthDomain"),healthUrlsEl=document.getElementById("healthUrls"),healthWarningsEl=document.getElementById("healthWarnings");
       function apiUrl(ep,p={}){const u=new URL(ep,window.location.origin);for(const[k,v]of Object.entries(p))if(v!=null&&v!=="")u.searchParams.set(k,String(v));return u;}
       function renderWarning(s){warningEl.className=s.securityMode==="open-local-network"?"banner":"banner safe";warningEl.textContent=s.securityMode==="open-local-network"?"⚠ PIN is disabled":"✓ PIN is active";}
-      function renderHostSummary(s){const started=s.lastStartedAt?new Date(s.lastStartedAt).toLocaleTimeString():"—";sharingStateEl.textContent=s.sharingActive?"Active (started "+started+")":"Stopped";hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No IPv4 detected";state.sharingActive=Boolean(s.sharingActive);startSharingEl.hidden=state.sharingActive;stopSharingEl.hidden=!state.sharingActive;}
+      function renderHostSummary(s){const started=s.lastStartedAt?new Date(s.lastStartedAt).toLocaleTimeString():"—";sharingStateEl.textContent=s.sharingActive?"Active (started "+started+")":"Stopped";hostIpsEl.textContent=(s.lanAddresses||[]).length?s.lanAddresses.join("\\n"):"No IPv4 detected";state.sharingActive=Boolean(s.sharingActive);startSharingEl.hidden=state.sharingActive;stopSharingEl.hidden=!state.sharingActive;state.webdavUrls=Array.isArray(s.webdavUrls)?s.webdavUrls:[];webdavUrlsEl.textContent=state.webdavUrls.length?state.webdavUrls.join("\\n"):"No WebDAV URLs detected.";}
       async function loadQr(){try{const r=await fetch("/api/qr");if(!r.ok)return;const{dataUrl}=await r.json();qrImgEl.src=dataUrl;qrBoxEl.style.visibility="visible";}catch{}}
       async function loadStatus(){const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status failed");const s=await r.json();renderWarning(s);renderHostSummary(s);if(s.roots&&s.roots[0])shareRootPathEl.value=s.roots[0].absPath;}
       async function loadTransferSettings(){
@@ -845,9 +856,14 @@ export function renderAdminUI(): string {
           uploadEnabledEl.checked=Boolean(data.uploadEnabled);
           createEnabledEl.checked=Boolean(data.createEnabled ?? data.modifyEnabled);
           deleteEnabledEl.checked=Boolean(data.deleteEnabled);
+          webdavEnabledEl.checked=Boolean(data.webdavEnabled ?? true);
           uploadMaxSizeMbEl.value=String(data.uploadMaxSizeMb||51200);
+          webdavStatusEl.textContent=webdavEnabledEl.checked?"WebDAV is enabled. Clients can connect using the URLs below.":"WebDAV is disabled by host.";
+          webdavStatusEl.style.borderColor=webdavEnabledEl.checked?"var(--success)":"var(--line)";
+          webdavStatusEl.style.color=webdavEnabledEl.checked?"var(--success)":"var(--muted)";
         }catch{
           transferStatusEl.textContent="Failed to load upload settings.";
+          webdavStatusEl.textContent="Failed to load WebDAV settings.";
         }
       }
       async function sendHostControl(action){const r=await fetch(apiUrl("/api/host/"+action),{method:"POST"});if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));alert(e.error||"Failed");return;}await loadStatus();}
@@ -859,7 +875,7 @@ export function renderAdminUI(): string {
           transferStatusEl.textContent="Max upload size must be between 1 and 51200 MB.";
           return;
         }
-        const payload={uploadEnabled:Boolean(uploadEnabledEl.checked),createEnabled:Boolean(createEnabledEl.checked),deleteEnabled:Boolean(deleteEnabledEl.checked),uploadMaxSizeMb:Math.round(maxSizeMb)};
+        const payload={uploadEnabled:Boolean(uploadEnabledEl.checked),createEnabled:Boolean(createEnabledEl.checked),deleteEnabled:Boolean(deleteEnabledEl.checked),webdavEnabled:Boolean(webdavEnabledEl.checked),uploadMaxSizeMb:Math.round(maxSizeMb)};
         const r=await fetch("/api/host/transfer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
         if(!r.ok){
           const e=await r.json().catch(()=>({error:"Failed"}));
@@ -870,8 +886,21 @@ export function renderAdminUI(): string {
         uploadEnabledEl.checked=Boolean(data.uploadEnabled);
         createEnabledEl.checked=Boolean(data.createEnabled ?? data.modifyEnabled);
         deleteEnabledEl.checked=Boolean(data.deleteEnabled);
+        webdavEnabledEl.checked=Boolean(data.webdavEnabled ?? true);
         uploadMaxSizeMbEl.value=String(data.uploadMaxSizeMb||51200);
         transferStatusEl.textContent="Upload settings saved.";
+        webdavStatusEl.textContent=webdavEnabledEl.checked?"WebDAV is enabled. Clients can connect using the URLs below.":"WebDAV is disabled by host.";
+        webdavStatusEl.style.borderColor=webdavEnabledEl.checked?"var(--success)":"var(--line)";
+        webdavStatusEl.style.color=webdavEnabledEl.checked?"var(--success)":"var(--muted)";
+      }
+      async function saveWebdavSettings(){
+        const r=await fetch("/api/host/transfer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({webdavEnabled:Boolean(webdavEnabledEl.checked)})});
+        if(!r.ok){const e=await r.json().catch(()=>({error:"Failed"}));webdavStatusEl.textContent=e.error||"Failed to save WebDAV setting.";webdavStatusEl.style.borderColor="var(--danger)";webdavStatusEl.style.color="var(--danger)";return;}
+        const data=await r.json();
+        webdavEnabledEl.checked=Boolean(data.webdavEnabled ?? true);
+        webdavStatusEl.textContent=webdavEnabledEl.checked?"WebDAV is enabled. Clients can connect using the URLs below.":"WebDAV is disabled by host.";
+        webdavStatusEl.style.borderColor=webdavEnabledEl.checked?"var(--success)":"var(--line)";
+        webdavStatusEl.style.color=webdavEnabledEl.checked?"var(--success)":"var(--muted)";
       }
       async function loadDomainName(){try{const r=await fetch("/api/host/domain-name");if(!r.ok)return;const data=await r.json();domainNameEl.value=data.domainName||"";domainStatusEl.textContent=data.domainName?"Domain: "+data.domainName:"Suggested: "+data.suggested;}catch{}}
       async function loadPinSettings(){
@@ -958,6 +987,7 @@ export function renderAdminUI(): string {
       saveDomainEl.addEventListener("click",saveDomainName);
       domainNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveDomainName();});
       saveTransferEl.addEventListener("click",saveTransferSettings);
+      saveWebdavEl.addEventListener("click",saveWebdavSettings);
       uploadMaxSizeMbEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveTransferSettings();});
       savePinBtnEl.addEventListener("click",savePinSettings);
       pinValueEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")savePinSettings();});

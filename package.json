@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --import tsx src/app.test.ts src/fileService.test.ts"
+    "test": "node --test --import tsx src/app.test.ts src/fileService.test.ts src/webdav.test.ts"
   },
   "keywords": [],
   "author": "",
