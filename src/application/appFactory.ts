@@ -18,7 +18,6 @@ import multer from 'multer';
 import type { AppConfig } from '../infrastructure/config';
 import { getDefaultMdnsDomainName, getLanIPv4Candidates } from '../infrastructure/config';
 import { generateQrDataUrl } from '../infrastructure/qrService';
-import { TunnelService } from '../infrastructure/tunnelService';
 import { renderHomePage, renderClientUI, renderAdminUI } from '../interface/html';
 import { isLoopbackAddress } from '../domain/models/hostSession';
 import type { FileSystemPort, HostSessionPort } from '../domain/ports';
@@ -88,16 +87,6 @@ export function createApp(
   const resumableUploads = new Map<string, ResumableUploadSession>();
   const uploadTmpDir = path.join(os.tmpdir(), 'lan-file-host-uploads');
   const CHUNK_UPLOAD_LIMIT_BYTES = 8 * 1024 * 1024;
-
-  // Initialize tunnel service with callback to update session state
-  const tunnelService = new TunnelService({
-    type: 'ngrok',
-    port: config.port,
-    onUrlChange: (url) => {
-      // Update session state with tunnel URL when it changes
-      (sessionState as any).setTunnelUrl?.(url);
-    },
-  });
 
   // Mount WebDAV before CORS so DAV methods/options are handled by DAV semantics.
   app.use('/dav', createDavRouter(fileSystem, sessionState, config, '/dav'));
@@ -294,21 +283,6 @@ export function createApp(
   app.post('/api/host/start', requireLocalControl, async (req, res) => {
     const snapshot = sessionState.startSharing();
 
-    // If tunnel is enabled, start it when sharing starts
-    if (sessionState.isTunnelEnabled()) {
-      try {
-        const url = await tunnelService.startTunnel(
-          sessionState.getTunnelType(),
-          config.port,
-        );
-        if (url) {
-          sessionState.setTunnelUrl(url);
-        }
-      } catch (error) {
-        console.error('Failed to start tunnel on share start:', error);
-      }
-    }
-
     res.json({
       message: 'Sharing started',
       ...snapshot,
@@ -320,16 +294,6 @@ export function createApp(
    */
   app.post('/api/host/stop', requireLocalControl, async (req, res) => {
     const snapshot = sessionState.stopSharing();
-
-    // Stop tunnel when sharing stops
-    if (sessionState.isTunnelEnabled()) {
-      try {
-        await tunnelService.stopTunnel();
-        sessionState.setTunnelUrl(undefined);
-      } catch (error) {
-        console.error('Failed to stop tunnel on share stop:', error);
-      }
-    }
 
     res.json({
       message: 'Sharing stopped',
@@ -597,81 +561,7 @@ export function createApp(
     });
   });
 
-  /**
-   * GET /api/host/tunnel - Get internet tunnel status (localhost only)
-   */
-  app.get('/api/host/tunnel', requireLocalControl, (_req, res) => {
-    res.json({
-      enabled: sessionState.isTunnelEnabled(),
-      type: sessionState.getTunnelType(),
-      url: sessionState.getTunnelUrl(),
-    });
-  });
 
-  /**
-   * POST /api/host/tunnel - Configure internet tunnel (localhost only)
-   */
-  app.post('/api/host/tunnel', requireLocalControl, async (req, res) => {
-    const body = req.body || {};
-    let updated = false;
-
-    if (typeof body.enabled === 'boolean') {
-      sessionState.setTunnelEnabled(body.enabled);
-      updated = true;
-
-      // Handle tunnel lifecycle
-      if (body.enabled && sessionState.isSharingActive()) {
-        // Start tunnel
-        try {
-          const url = await tunnelService.startTunnel(
-            sessionState.getTunnelType(),
-            config.port,
-            body.authToken,
-          );
-          if (url) {
-            sessionState.setTunnelUrl(url);
-          }
-        } catch (error) {
-          console.error('Failed to start tunnel:', error);
-          sessionState.setTunnelUrl(undefined);
-        }
-      } else if (!body.enabled) {
-        // Stop tunnel
-        try {
-          await tunnelService.stopTunnel();
-        } catch (error) {
-          console.error('Failed to stop tunnel:', error);
-        }
-        sessionState.setTunnelUrl(undefined);
-      }
-    }
-
-    if (body.type === 'ngrok' || body.type === 'localtunnel') {
-      sessionState.setTunnelType(body.type);
-      updated = true;
-    }
-
-    if (typeof body.authToken === 'string') {
-      tunnelService.setAuthToken(body.authToken);
-      updated = true;
-    }
-
-    if (!updated) {
-      res.status(HTTP_STATUS.BAD_REQUEST).json({
-        error: 'enabled(boolean), type(ngrok|localtunnel), or authToken(string) is required',
-        code: 'INVALID_TUNNEL_CONFIG',
-      });
-      return;
-    }
-
-    res.json({
-      message: 'Tunnel configuration updated',
-      enabled: sessionState.isTunnelEnabled(),
-      type: sessionState.getTunnelType(),
-      url: sessionState.getTunnelUrl(),
-      note: 'Tunnel requires sharing to be active to establish connection',
-    });
-  });
 
   /**
    * GET /api/list - List directory contents

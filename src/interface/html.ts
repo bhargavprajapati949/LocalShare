@@ -1133,8 +1133,7 @@ export function renderAdminUI(): string {
       saveDomainEl.addEventListener("click",saveDomainName);
       domainNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveDomainName();});
       saveTransferEl.addEventListener("click",saveTransferSettings);
-      saveWebdavEl.addEventListener("click",saveWebdavSettings);
-      uploadMaxSizeMbEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveTransferSettings();});
+      saveWebdavEl.addEventListener("click",saveWebdavSettings);uploadMaxSizeMbEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")saveTransferSettings();});
       savePinBtnEl.addEventListener("click",savePinSettings);
       pinValueEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")savePinSettings();});
       clearPinBtnEl.addEventListener("click",clearPinSettings);

@@ -32,9 +32,6 @@ export class HostSessionState implements HostSessionPort {
   private deleteEnabled = true;
   private readEnabled = true;
   private webdavEnabled = false;
-  private tunnelEnabled = false;
-  private tunnelType: 'ngrok' | 'localtunnel' = 'ngrok';
-  private tunnelUrl?: string;
 
   /**
    * Start sharing (idempotent)
@@ -195,48 +192,6 @@ export class HostSessionState implements HostSessionPort {
      */
     public setWebdavEnabled(enabled: boolean): void {
       this.webdavEnabled = Boolean(enabled);
-    }
-
-    /**
-     * Check if internet tunnel is enabled
-     */
-    public isTunnelEnabled(): boolean {
-      return this.tunnelEnabled;
-    }
-
-    /**
-     * Enable/disable internet tunnel
-     */
-    public setTunnelEnabled(enabled: boolean): void {
-      this.tunnelEnabled = Boolean(enabled);
-    }
-
-    /**
-     * Get current tunnel type (ngrok or localtunnel)
-     */
-    public getTunnelType(): 'ngrok' | 'localtunnel' {
-      return this.tunnelType;
-    }
-
-    /**
-     * Set tunnel type
-     */
-    public setTunnelType(type: 'ngrok' | 'localtunnel'): void {
-      this.tunnelType = type;
-    }
-
-    /**
-     * Get current tunnel URL if active
-     */
-    public getTunnelUrl(): string | undefined {
-      return this.tunnelUrl;
-    }
-
-    /**
-     * Set tunnel URL (typically set by tunnel service)
-     */
-    public setTunnelUrl(url: string | undefined): void {
-      this.tunnelUrl = url?.trim() || undefined;
     }
 }
 
