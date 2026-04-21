@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LocalShare | Elegant LAN File Sharing</title>
+    <meta
+      name="description"
+      content="LocalShare helps you share files across devices on the same network, with no cloud upload, no account setup, and no internet dependency."
+    />
+    <meta name="theme-color" content="#0f766e" />
+
+    <meta property="og:title" content="LocalShare | Elegant LAN File Sharing" />
+    <meta
+      property="og:description"
+      content="Fast, private, local-network file sharing with browser UI, WebDAV support, and cross-platform binaries."
+    />
+    <meta property="og:type" content="website" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ['Space Grotesk', 'sans-serif'],
+              body: ['Sora', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                50: '#ecfeff',
+                100: '#cffafe',
+                200: '#a5f3fc',
+                300: '#67e8f9',
+                400: '#22d3ee',
+                500: '#06b6d4',
+                600: '#0891b2',
+                700: '#0e7490',
+                800: '#155e75',
+                900: '#164e63',
+              },
+              ink: '#0f172a',
+              mist: '#f8fafc',
+              warm: '#fff9f1',
+            },
+            boxShadow: {
+              glow: '0 12px 36px -12px rgba(14, 116, 144, 0.35)',
+            },
+            keyframes: {
+              floatSlow: {
+                '0%, 100%': { transform: 'translateY(0px)' },
+                '50%': { transform: 'translateY(-12px)' },
+              },
+              drift: {
+                '0%': { transform: 'translateX(0px) translateY(0px)' },
+                '50%': { transform: 'translateX(18px) translateY(-10px)' },
+                '100%': { transform: 'translateX(0px) translateY(0px)' },
+              },
+            },
+            animation: {
+              floatSlow: 'floatSlow 7s ease-in-out infinite',
+              drift: 'drift 10s ease-in-out infinite',
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background:
+          radial-gradient(circle at 8% 12%, rgba(34, 211, 238, 0.16), transparent 38%),
+          radial-gradient(circle at 92% 5%, rgba(251, 191, 36, 0.16), transparent 40%),
+          linear-gradient(180deg, #f9fffe 0%, #f8fafc 38%, #fffaf4 100%);
+      }
+
+      .glass {
+        backdrop-filter: blur(8px);
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .grid-pattern {
+        background-image:
+          linear-gradient(to right, rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
+        background-size: 28px 28px;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-4px);
+      }
+    </style>
+  </head>
+  <body class="text-ink font-body antialiased">
+    <header class="sticky top-0 z-50 border-b border-slate-200/70 glass">
+      <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+        <a href="#top" class="font-display text-xl font-bold tracking-tight text-brand-800">LocalShare</a>
+        <nav class="hidden md:flex items-center gap-6 text-sm text-slate-700 font-medium">
+          <a href="#features" class="hover:text-brand-700 transition">Features</a>
+          <a href="#security" class="hover:text-brand-700 transition">Security</a>
+          <a href="#how" class="hover:text-brand-700 transition">How It Works</a>
+          <a href="#downloads" class="hover:text-brand-700 transition">Downloads</a>
+          <a href="#faq" class="hover:text-brand-700 transition">FAQ</a>
+        </nav>
+        <a
+          href="#downloads"
+          class="rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-glow hover:bg-brand-800 transition"
+        >
+          Download Latest
+        </a>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="relative overflow-hidden">
+        <div class="mx-auto max-w-7xl px-6 pt-16 pb-20 md:pt-24 md:pb-28">
+          <div class="grid lg:grid-cols-2 gap-12 items-center">
+            <div data-aos="fade-up" data-aos-duration="900">
+              <p class="inline-flex items-center rounded-full border border-brand-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-700">
+                Local-First File Sharing
+              </p>
+              <h1 class="mt-5 font-display text-4xl md:text-6xl font-bold leading-tight text-slate-900">
+                Share Files Across Your LAN
+                <span class="text-brand-700">Beautifully Fast.</span>
+              </h1>
+              <p class="mt-5 text-lg leading-relaxed text-slate-700 max-w-xl">
+                LocalShare lets you move files between phones, laptops, and desktops on the same network without cloud upload, account setup, or external tunnel services.
+              </p>
+              <div class="mt-8 flex flex-wrap gap-4">
+                <a href="#downloads" class="rounded-2xl bg-brand-700 px-6 py-3 text-sm font-semibold text-white shadow-glow hover:bg-brand-800 transition">
+                  Get Latest Build
+                </a>
+                <a
+                  href="https://github.com/bhargavprajapati949/LocalShare"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="rounded-2xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:border-brand-400 hover:text-brand-700 transition"
+                >
+                  View GitHub
+                </a>
+              </div>
+              <div class="mt-8 text-sm text-slate-600">
+                <span id="latestReleaseText" class="inline-flex rounded-full bg-white border border-slate-200 px-4 py-2">
+                  Checking latest release...
+                </span>
+              </div>
+            </div>
+
+            <div class="relative" data-aos="zoom-in" data-aos-duration="1000">
+              <div class="absolute -top-7 -left-6 h-24 w-24 rounded-full bg-brand-200 blur-2xl animate-drift"></div>
+              <div class="absolute -bottom-8 -right-6 h-24 w-24 rounded-full bg-amber-200 blur-2xl animate-floatSlow"></div>
+              <div class="relative rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-xl">
+                <div class="grid-pattern rounded-2xl border border-slate-200 p-5">
+                  <div class="flex items-center justify-between">
+                    <p class="font-display text-lg font-semibold text-slate-900">Session Dashboard</p>
+                    <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Active</span>
+                  </div>
+                  <div class="mt-5 space-y-3 text-sm text-slate-700">
+                    <div class="rounded-xl bg-white p-3 border border-slate-200">LAN URLs generated with mDNS and direct IP fallback</div>
+                    <div class="rounded-xl bg-white p-3 border border-slate-200">PIN and transfer policy controls for runtime access</div>
+                    <div class="rounded-xl bg-white p-3 border border-slate-200">WebDAV toggle for Finder, Files app, and desktop clients</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="mx-auto max-w-7xl px-6 py-16 md:py-24">
+        <div class="max-w-2xl" data-aos="fade-up">
+          <h2 class="font-display text-3xl md:text-4xl font-bold text-slate-900">Everything You Need for LAN Transfers</h2>
+          <p class="mt-4 text-slate-700">
+            Built for speed, safety, and control. LocalShare gives host-side power without sacrificing a clean client experience.
+          </p>
+        </div>
+
+        <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <article data-aos="fade-up" data-aos-delay="40" class="feature-card transition duration-300 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="font-display text-lg font-semibold">Browser-Based Access</h3>
+            <p class="mt-2 text-sm text-slate-700">Clients browse and download from any modern browser on the same Wi-Fi or hotspot.</p>
+          </article>
+          <article data-aos="fade-up" data-aos-delay="80" class="feature-card transition duration-300 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="font-display text-lg font-semibold">Managed Downloads</h3>
+            <p class="mt-2 text-sm text-slate-700">Pause, resume, cancel, and accelerate transfers with parallel chunk downloading.</p>
+          </article>
+          <article data-aos="fade-up" data-aos-delay="120" class="feature-card transition duration-300 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="font-display text-lg font-semibold">Folder ZIP Streaming</h3>
+            <p class="mt-2 text-sm text-slate-700">Download entire directories as ZIP archives without heavy memory buffering.</p>
+          </article>
+          <article data-aos="fade-up" data-aos-delay="160" class="feature-card transition duration-300 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="font-display text-lg font-semibold">Resumable Uploads</h3>
+            <p class="mt-2 text-sm text-slate-700">Upload files and folders with chunked transfer support for robust large-file handling.</p>
+          </article>
+          <article data-aos="fade-up" data-aos-delay="200" class="feature-card transition duration-300 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="font-display text-lg font-semibold">WebDAV Mode</h3>
+            <p class="mt-2 text-sm text-slate-700">Mount LocalShare through WebDAV-compatible clients like Finder and mobile files apps.</p>
+          </article>
+          <article data-aos="fade-up" data-aos-delay="240" class="feature-card transition duration-300 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="font-display text-lg font-semibold">Admin Runtime Controls</h3>
+            <p class="mt-2 text-sm text-slate-700">Toggle read, upload, create, delete, PIN, and discovery settings without restart.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="how" class="py-16 md:py-24 border-y border-slate-200/80 bg-white/70">
+        <div class="mx-auto max-w-7xl px-6">
+          <div class="max-w-2xl" data-aos="fade-up">
+            <h2 class="font-display text-3xl md:text-4xl font-bold text-slate-900">How It Works</h2>
+            <p class="mt-4 text-slate-700">From zero to file transfer in under a minute.</p>
+          </div>
+
+          <div class="mt-10 grid md:grid-cols-3 gap-5">
+            <div data-aos="fade-up" data-aos-delay="40" class="rounded-2xl border border-slate-200 bg-white p-6">
+              <p class="text-xs font-semibold uppercase tracking-wider text-brand-700">Step 01</p>
+              <h3 class="mt-3 font-display text-xl font-semibold">Run LocalShare</h3>
+              <p class="mt-2 text-slate-700 text-sm">Launch LocalShare on your host machine and open the localhost admin panel.</p>
+            </div>
+            <div data-aos="fade-up" data-aos-delay="80" class="rounded-2xl border border-slate-200 bg-white p-6">
+              <p class="text-xs font-semibold uppercase tracking-wider text-brand-700">Step 02</p>
+              <h3 class="mt-3 font-display text-xl font-semibold">Choose Access Rules</h3>
+              <p class="mt-2 text-slate-700 text-sm">Select shared roots, set optional PIN, and configure transfer permissions.</p>
+            </div>
+            <div data-aos="fade-up" data-aos-delay="120" class="rounded-2xl border border-slate-200 bg-white p-6">
+              <p class="text-xs font-semibold uppercase tracking-wider text-brand-700">Step 03</p>
+              <h3 class="mt-3 font-display text-xl font-semibold">Share on Your LAN</h3>
+              <p class="mt-2 text-slate-700 text-sm">Open the client URL or scan QR code from any device connected to the same network.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="security" class="mx-auto max-w-7xl px-6 py-16 md:py-24">
+        <div class="grid lg:grid-cols-2 gap-10 items-start">
+          <div data-aos="fade-right">
+            <h2 class="font-display text-3xl md:text-4xl font-bold text-slate-900">Privacy and Control First</h2>
+            <p class="mt-4 text-slate-700">
+              LocalShare is designed for local-network sharing, so your transfer flow stays within your own environment.
+            </p>
+            <ul class="mt-6 space-y-3 text-slate-700">
+              <li>• Localhost-only host controls for critical admin actions</li>
+              <li>• Optional session PIN to protect client access</li>
+              <li>• Runtime read/upload/create/delete policy toggles</li>
+              <li>• Path-safety boundaries across shared root directories</li>
+            </ul>
+          </div>
+          <div data-aos="fade-left" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 class="font-display text-xl font-semibold">Built for Real Networks</h3>
+            <p class="mt-3 text-sm text-slate-700">
+              Includes discovery diagnostics, mDNS naming, QR onboarding, and direct LAN URLs to reduce connection friction across mixed-device setups.
+            </p>
+            <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
+              <div class="rounded-xl bg-brand-50 p-4 border border-brand-100">
+                <p class="font-semibold text-brand-800">No Cloud Relay</p>
+                <p class="mt-1 text-slate-700">Local transfer path only</p>
+              </div>
+              <div class="rounded-xl bg-amber-50 p-4 border border-amber-100">
+                <p class="font-semibold text-amber-700">No Account Required</p>
+                <p class="mt-1 text-slate-700">Instant device-to-device setup</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="downloads" class="py-16 md:py-24 bg-slate-950 text-slate-100">
+        <div class="mx-auto max-w-7xl px-6">
+          <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-5" data-aos="fade-up">
+            <div>
+              <h2 class="font-display text-3xl md:text-4xl font-bold">Download LocalShare</h2>
+              <p class="mt-3 text-slate-300 max-w-2xl">
+                These links always point to the latest GitHub release asset, so users automatically get your newest version.
+              </p>
+            </div>
+            <a
+              href="https://github.com/bhargavprajapati949/LocalShare/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              class="inline-flex rounded-full border border-slate-600 px-5 py-2.5 text-sm font-semibold hover:border-brand-400 hover:text-brand-300 transition"
+            >
+              View Release Notes
+            </a>
+          </div>
+
+          <div class="mt-8" data-aos="fade-up" data-aos-delay="80">
+            <span id="latestReleaseBadge" class="inline-flex rounded-full bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300">
+              Fetching latest release metadata...
+            </span>
+          </div>
+
+          <div class="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a class="rounded-2xl border border-slate-700 p-5 bg-slate-900/60 hover:bg-slate-900 transition" href="https://github.com/bhargavprajapati949/LocalShare/releases/latest/download/localshare-linux-x64">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Linux</p>
+              <p class="mt-2 font-display text-lg font-semibold">x64</p>
+              <p class="mt-4 text-sm text-brand-300">Download latest</p>
+            </a>
+            <a class="rounded-2xl border border-slate-700 p-5 bg-slate-900/60 hover:bg-slate-900 transition" href="https://github.com/bhargavprajapati949/LocalShare/releases/latest/download/localshare-macos-arm64">
+              <p class="text-xs uppercase tracking-wider text-slate-400">macOS</p>
+              <p class="mt-2 font-display text-lg font-semibold">Apple Silicon</p>
+              <p class="mt-4 text-sm text-brand-300">Download latest</p>
+            </a>
+            <a class="rounded-2xl border border-slate-700 p-5 bg-slate-900/60 hover:bg-slate-900 transition" href="https://github.com/bhargavprajapati949/LocalShare/releases/latest/download/localshare-macos-x64-intel">
+              <p class="text-xs uppercase tracking-wider text-slate-400">macOS</p>
+              <p class="mt-2 font-display text-lg font-semibold">Intel x64</p>
+              <p class="mt-4 text-sm text-brand-300">Download latest</p>
+            </a>
+            <a class="rounded-2xl border border-slate-700 p-5 bg-slate-900/60 hover:bg-slate-900 transition" href="https://github.com/bhargavprajapati949/LocalShare/releases/latest/download/localshare-win-x64.exe">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Windows</p>
+              <p class="mt-2 font-display text-lg font-semibold">x64</p>
+              <p class="mt-4 text-sm text-brand-300">Download latest</p>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="mx-auto max-w-7xl px-6 py-16 md:py-24">
+        <h2 class="font-display text-3xl md:text-4xl font-bold text-slate-900" data-aos="fade-up">FAQ</h2>
+        <div class="mt-8 space-y-4">
+          <details data-aos="fade-up" class="rounded-2xl border border-slate-200 bg-white p-5">
+            <summary class="cursor-pointer font-semibold">Does LocalShare require internet access?</summary>
+            <p class="mt-3 text-sm text-slate-700">No. It is designed for local-network sharing between devices on the same LAN/hotspot.</p>
+          </details>
+          <details data-aos="fade-up" data-aos-delay="40" class="rounded-2xl border border-slate-200 bg-white p-5">
+            <summary class="cursor-pointer font-semibold">Can I protect access with a PIN?</summary>
+            <p class="mt-3 text-sm text-slate-700">Yes. You can enable an optional session PIN and enforce runtime permission policies from admin UI.</p>
+          </details>
+          <details data-aos="fade-up" data-aos-delay="80" class="rounded-2xl border border-slate-200 bg-white p-5">
+            <summary class="cursor-pointer font-semibold">How do users get the newest version?</summary>
+            <p class="mt-3 text-sm text-slate-700">The download buttons use GitHub latest-release URLs, so each click resolves to your newest release asset.</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-slate-200 py-8">
+      <div class="mx-auto max-w-7xl px-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-sm text-slate-600">
+        <p>Built for local-first sharing. No accounts. No cloud lock-in.</p>
+        <div class="flex items-center gap-5">
+          <a class="hover:text-brand-700" href="https://github.com/bhargavprajapati949/LocalShare" target="_blank" rel="noreferrer">GitHub</a>
+          <a class="hover:text-brand-700" href="https://github.com/bhargavprajapati949/LocalShare/releases/latest" target="_blank" rel="noreferrer">Latest Release</a>
+          <a class="hover:text-brand-700" href="https://github.com/bhargavprajapati949/LocalShare/blob/main/LICENSE" target="_blank" rel="noreferrer">License</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script>
+      AOS.init({
+        once: true,
+        duration: 780,
+        easing: 'ease-out-cubic',
+      });
+
+      async function hydrateLatestRelease() {
+        const label = document.getElementById('latestReleaseText');
+        const badge = document.getElementById('latestReleaseBadge');
+
+        if (!label || !badge) {
+          return;
+        }
+
+        try {
+          const res = await fetch('https://api.github.com/repos/bhargavprajapati949/LocalShare/releases/latest');
+          if (!res.ok) {
+            throw new Error('Release metadata fetch failed');
+          }
+
+          const release = await res.json();
+          const tag = release.tag_name || 'latest';
+          const date = release.published_at
+            ? new Date(release.published_at).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })
+            : 'recent';
+
+          label.textContent = `Latest release: ${tag} (${date})`;
+          badge.textContent = `Current stable tag: ${tag} · Published ${date}`;
+        } catch (error) {
+          label.textContent = 'Latest release available on GitHub';
+          badge.textContent = 'Could not load release metadata. Download links still point to latest assets.';
+        }
+      }
+
+      hydrateLatestRelease();
+    </script>
+  </body>
+</html>
