@@ -99,6 +99,8 @@ export function renderHomePage(): string {
       .pin-card .pin-error { color:var(--danger); font-size:13px; margin:-6px 0 10px; min-height:18px; }
       .pin-card button { width:100%; }
       @media (max-width:760px) { body{padding:10px;} .card{padding:16px;} .status-grid{grid-template-columns:1fr 1fr;} .qr-box{display:none;} .browse-row{grid-template-columns:1fr;} .item{grid-template-columns:1fr auto;} .item .muted.hide-sm{display:none;} }
+      .feedback-link { display:block; text-align:center; margin:16px auto 0; font-size:12px; color:var(--muted); text-decoration:none; transition:color 0.2s; }
+      .feedback-link:hover { color:var(--accent); }
     </style>
   </head>
   <body>
@@ -157,6 +159,7 @@ export function renderHomePage(): string {
         <div id="downloadItems" class="download-empty"></div>
       </section>
     </section>
+    <a class="feedback-link" href="https://bhargavprajapati949.github.io/LocalShare/#feedback" target="_blank" rel="noreferrer">Send Feedback or Report a Bug</a>
     <script>
         const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[],downloadMode:localStorage.getItem("lan_download_mode")==="browser"?"browser":"managed",downloads:new Map(),uploads:new Map(),uploadMaxSizeMb:51200,uploadEnabled:false,createEnabled:false,deleteEnabled:false,readEnabled:true,sortBy:"name",sortDir:"asc"};
       const listEl=document.getElementById("list"),rootEl=document.getElementById("root"),breadcrumbEl=document.getElementById("breadcrumb"),
@@ -981,6 +984,8 @@ export function renderAdminUI(): string {
       button.secondary { background:var(--surface); color:var(--text); border-color:var(--line); }
       button.danger { background:var(--danger); border-color:var(--danger); }
       @media (max-width:760px) { body{padding:10px;} .card{padding:16px;} .status-grid{grid-template-columns:1fr 1fr;} .qr-box{display:none;} }
+      .feedback-link { display:block; text-align:center; margin:16px auto 0; font-size:12px; color:var(--muted); text-decoration:none; transition:color 0.2s; }
+      .feedback-link:hover { color:var(--accent); }
     </style>
   </head>
   <body>
@@ -1079,6 +1084,7 @@ export function renderAdminUI(): string {
         </div>
       </div>
     </section>
+    <a class="feedback-link" href="https://bhargavprajapati949.github.io/LocalShare/#feedback" target="_blank" rel="noreferrer">Send Feedback or Report a Bug</a>
     <script>
       const state={sharingActive:true,webdavUrls:[]};
       const sharingStateEl=document.getElementById("sharingState"),hostIpsEl=document.getElementById("hostIps"),
