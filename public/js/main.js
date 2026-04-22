@@ -1,5 +1,6 @@
 const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:false,requiresPin:false,lanUrls:[],downloadMode:localStorage.getItem("lan_download_mode")==="managed"?"managed":"browser",downloads:new Map(),uploads:new Map(),uploadMaxSizeMb:51200,uploadEnabled:false,createEnabled:false,deleteEnabled:false,readEnabled:true,sortBy:"name",sortDir:"asc"};
-      const listEl=document.getElementById("list"),rootEl=document.getElementById("root"),breadcrumbEl=document.getElementById("breadcrumb"),
+      const listEl=document.getElementById("list"),listHeaderEl=document.getElementById("listHeader"),
+            rootEl=document.getElementById("root"),breadcrumbEl=document.getElementById("breadcrumb"),
             pinInputEl=document.getElementById("pinInput"),pinInputContainerEl=document.getElementById("pinInputContainer"),
             refreshEl=document.getElementById("refresh"),
             downloadModeToggleEl=document.getElementById("downloadModeToggle"),downloadItemsEl=document.getElementById("downloadItems"),
@@ -685,18 +686,16 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         loadDirectory();
       }
       function renderListHeader(){
-        const header=document.createElement("div");
-        header.className="list-header";
+        listHeaderEl.innerHTML="";
         const arrow=(k)=>state.sortBy===k?(state.sortDir==="asc"?"↑":"↓"):"";
-        header.innerHTML=
-          '<button class="sort-btn flex-1 text-left" data-sort="name">Name '+arrow("name")+'</button>'+
-          '<button class="sort-btn col-size" data-sort="size">Size '+arrow("size")+'</button>'+
-          '<button class="sort-btn col-date" data-sort="date">Modified '+arrow("date")+'</button>'+
-          '<span class="muted col-actions text-right">Actions</span>';
-        header.querySelectorAll("button[data-sort]").forEach((btn)=>{
+        listHeaderEl.innerHTML=
+          '<th class="list-header-cell"><button class="sort-btn" data-sort="name">Name '+arrow("name")+'</button></th>'+
+          '<th class="list-header-cell text-right"><button class="sort-btn justify-end" data-sort="size">Size '+arrow("size")+'</button></th>'+
+          '<th class="list-header-cell text-right"><button class="sort-btn justify-end" data-sort="date">Modified '+arrow("date")+'</button></th>'+
+          '<th class="list-header-cell text-right">Actions</th>';
+        listHeaderEl.querySelectorAll("button[data-sort]").forEach((btn)=>{
           btn.addEventListener("click",()=>toggleSort(btn.getAttribute("data-sort")));
         });
-        listEl.appendChild(header);
       }
       async function createDirectory(){
         const name=newDirNameEl.value.trim();
@@ -713,49 +712,49 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         await loadDirectory();
       }
       async function loadDirectory(){
-        if(!state.sharingActive){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Sharing is stopped. Start sharing to browse.</span></div>';breadcrumbEl.innerHTML="";return;}
-        if(!state.readEnabled){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Read operations are disabled by host.</span></div>';breadcrumbEl.innerHTML="";return;}
+        if(!state.sharingActive){listEl.innerHTML='<tr><td colspan="4" class="py-10 text-center text-slate-500">Sharing is stopped. Start sharing to browse.</td></tr>';breadcrumbEl.innerHTML="";return;}
+        if(!state.readEnabled){listEl.innerHTML='<tr><td colspan="4" class="py-10 text-center text-slate-500">Read operations are disabled by host.</td></tr>';breadcrumbEl.innerHTML="";return;}
         state.pin=pinInputEl.value.trim()||storedPin();
         if(state.requiresPin&&!state.pin){showPinGate();return;}
         const resp=await fetch(apiUrl("/api/list",{root:state.root,path:state.path,pin:state.pin,sortBy:state.sortBy,sortDir:state.sortDir}));
         if(resp.status===401){clearPin();showPinGate();return;}
-        if(!resp.ok){listEl.innerHTML='<div class="item" style="grid-column:1/-1"><span>Failed to load. Check root/path/PIN.</span></div>';return;}
+        if(!resp.ok){listEl.innerHTML='<tr><td colspan="4" class="py-10 text-center text-red-500">Failed to load. Check root/path/PIN.</td></tr>';return;}
         const payload=await resp.json();savePin(state.pin);
         const rootName=(state.roots.find((r)=>r.id===state.root)||{}).name||"root";
         renderBreadcrumb(rootName,payload.path);listEl.innerHTML="";
         renderListHeader();
         if(payload.path){
           const pp=payload.path.includes("/")?payload.path.split("/").slice(0,-1).join("/"):"";
-          const row=document.createElement("div");row.className="item";
-          row.innerHTML='<div class="name" style="grid-column:1/-1"><button>\u2b06 ..</button></div>';
+          const row=document.createElement("tr");row.className="item-row";
+          row.innerHTML='<td colspan="4" class="name-cell"><button class="flex items-center gap-2">\u2b06 ..</button></td>';
           row.querySelector("button").addEventListener("click",()=>{state.path=pp;loadDirectory();});listEl.appendChild(row);
         }
         payload.entries.forEach((entry)=>{
-          const row=document.createElement("div");row.className="item";
-          const nameCell=entry.isDirectory?'<div class="name"><button>&#128193; '+entry.name+'/</button></div>':'<div class="name"><span>&#128196; '+entry.name+'</span></div>';
+          const row=document.createElement("tr");row.className="item-row";
+          const nameCell=entry.isDirectory?'<td class="name-cell"><button class="flex items-start gap-2">&#128193; <span>'+entry.name+'/</span></button></td>':'<td class="name-cell"><div class="flex items-start gap-2">&#128196; <span>'+entry.name+'</span></div></td>';
           
           const size=formatBytes(entry.size);
-          const sizeCell='<div class="muted col-size">'+(entry.isDirectory?"\u2014":`<span>${size.full}</span>`)+'</div>';
+          const sizeCell='<td class="col-size">'+(entry.isDirectory?"\u2014":`<span>${size.full}</span>`)+'</td>';
           
           const dt=new Date(entry.modifiedAt);
-          const dateCell=`<div class="muted col-date"><span>${dt.toLocaleDateString()}</span><br/><span class="text-[10px] opacity-70">${dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+          const dateCell=`<td class="col-date"><span>${dt.toLocaleDateString()}</span><br/><span class="text-[10px] opacity-70">${dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></td>`;
           
           const delBtn=state.deleteEnabled?'<button class="icon-btn" data-delete="'+entry.relPath+'" data-name="'+entry.name+'">Delete</button>':'';
           const dlDisabled=state.readEnabled?'':' disabled';
           const actionCell=entry.isDirectory
-            ?'<div class="col-actions"><div class="entry-actions" data-dl-path="'+entry.relPath+'"><button class="dl-btn"'+dlDisabled+'>\u2193 ZIP</button>'+delBtn+'</div></div>'
-            :'<div class="col-actions"><div class="entry-actions" data-dl-path="'+entry.relPath+'"><button class="dl-btn"'+dlDisabled+'>\u2193 Download</button>'+delBtn+'</div></div>';
+            ?'<td class="col-actions"><div class="entry-actions" data-dl-path="'+entry.relPath+'"><button class="dl-btn"'+dlDisabled+'>\u2193 ZIP</button>'+delBtn+'</div></td>'
+            :'<td class="col-actions"><div class="entry-actions" data-dl-path="'+entry.relPath+'"><button class="dl-btn"'+dlDisabled+'>\u2193 Download</button>'+delBtn+'</div></td>';
           
           row.innerHTML=nameCell+sizeCell+dateCell+actionCell;
-          if(entry.isDirectory){row.querySelector(".name button").addEventListener("click",()=>{state.path=entry.relPath;loadDirectory();});row.querySelector(".dl-btn").addEventListener("click",()=>downloadDirectory(entry.relPath));}
+          if(entry.isDirectory){row.querySelector(".name-cell button").addEventListener("click",()=>{state.path=entry.relPath;loadDirectory();});row.querySelector(".dl-btn").addEventListener("click",()=>downloadDirectory(entry.relPath));}
           else row.querySelector(".dl-btn").addEventListener("click",()=>downloadFile(entry.relPath));
           const deleteBtn=row.querySelector("button[data-delete]");
           if(deleteBtn)deleteBtn.addEventListener("click",()=>deleteEntry(entry.relPath,entry.name));
           listEl.appendChild(row);
         });
         if(!payload.entries.length&&!payload.path){
-          const row=document.createElement("div");row.className="item";
-          row.innerHTML='<div style="grid-column:1/-1"><span class="muted">This folder is empty.</span></div>';
+          const row=document.createElement("tr");row.className="item-row";
+          row.innerHTML='<td colspan="4" class="py-10 text-center text-slate-500">This folder is empty.</td>';
           listEl.appendChild(row);
         }
       }
