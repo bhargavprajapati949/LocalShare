@@ -47,9 +47,15 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         if(!right)return left;
         return left+"/"+right;
       }
-      function stopDownloadControllers(download){
-        if(download.controller){download.controller.abort();download.controller=null;}
-        if(download.controllers){download.controllers.forEach((c)=>c.abort());download.controllers.clear();}
+      function stopDownloadControllers(d){
+        if(d.controllers){d.controllers.forEach(c=>c.abort());d.controllers.clear();}
+        if(d.controller){d.controller.abort();d.controller=null;}
+      }
+      function removeManagedDownload(relPath){
+        const d=state.downloads.get(relPath);
+        if(d)stopDownloadControllers(d);
+        state.downloads.delete(relPath);
+        renderDownloadPanel();
       }
       function pauseManagedDownload(relPath){
         const d=state.downloads.get(relPath);if(!d||d.status!=="downloading")return;
@@ -72,20 +78,38 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         upsertDownload(d);
       }
       function buildDownloadActions(d){
-        if(d.status==="downloading"){
-          return d.kind==="directory"
-            ?'<button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>'
-            :'<button class="secondary" data-action="pause" data-path="'+d.relPath+'">Pause</button><button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>';
+        const isDir = d.kind === "directory";
+        const path = d.relPath;
+        
+        if (d.status === "downloading") {
+          return isDir
+            ? `<button class="danger" data-action="cancel" data-path="${path}">Cancel</button>`
+            : `<button class="secondary" data-action="pause" data-path="${path}">Pause</button><button class="danger" data-action="cancel" data-path="${path}">Cancel</button>`;
         }
-        if(d.status==="paused"){
-          // File: can resume. No Cancel — the partial progress is preserved.
-          return '<button data-action="start" data-path="'+d.relPath+'">Resume</button>';
+        
+        if (d.status === "paused") {
+          return isDir
+            ? `<button data-action="start" data-path="${path}">Restart</button><button class="danger" data-action="cancel" data-path="${path}">Cancel</button>`
+            : `<button data-action="start" data-path="${path}">Resume</button><button class="danger" data-action="cancel" data-path="${path}">Cancel</button>`;
         }
-        if(d.status==="queued"||d.status==="error"||d.status==="canceled"){
-          if(d.kind==="directory")return '<button data-action="start" data-path="'+d.relPath+'">Restart</button>';
-          return '<button data-action="start" data-path="'+d.relPath+'">Start</button><button class="danger" data-action="cancel" data-path="'+d.relPath+'">Cancel</button>';
+        
+        if (d.status === "error") {
+          return `<button data-action="start" data-path="${path}">Retry</button><button class="danger" data-action="cancel" data-path="${path}">Cancel</button>`;
         }
-        return '';
+        
+        if (d.status === "canceled") {
+          return `<button data-action="start" data-path="${path}">Restart</button><button class="secondary" data-action="remove" data-path="${path}">Remove</button>`;
+        }
+        
+        if (d.status === "completed") {
+          return `<button class="secondary" data-action="remove" data-path="${path}">Remove</button>`;
+        }
+        
+        if (d.status === "queued") {
+          return `<button class="danger" data-action="cancel" data-path="${path}">Cancel</button>`;
+        }
+        
+        return "";
       }
       function renderDownloadPanel(){
         const items=Array.from(state.downloads.values());
@@ -422,6 +446,9 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
           d.received=0;d.total=0;d.chunks=[];d.error="";
           await streamManagedDownloadDirectory(d);
           return;
+        }
+        if(d.status==="canceled"||d.status==="completed"){
+          d.received=0;d.total=0;d.chunkMap=new Map();d.pendingChunkIndexes=[];d.chunks=[];
         }
         await streamManagedDownload(d);
       }
@@ -780,6 +807,7 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         if(action==="start")resumeManagedDownload(path);
         else if(action==="pause")pauseManagedDownload(path);
         else if(action==="cancel")cancelManagedDownload(path);
+        else if(action==="remove")removeManagedDownload(path);
       });
       // Delegated listener for upload panel — survives innerHTML re-renders
       uploadItemsEl.addEventListener("click",(e)=>{

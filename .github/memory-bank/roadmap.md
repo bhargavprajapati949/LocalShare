@@ -53,3 +53,4 @@ Status values:
 
 ## Bugs
 - Android mDNS (.local) resolution unreliable on same LAN/hotspot - todo
+- On windows, user is not able to share whole drive (like D:\). It only allows to share folders. - todo
