@@ -1,6 +1,6 @@
 {
   "name": "localshare",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Cross-platform local network HTTP file host prototype",
   "main": "dist/server.js",
   "scripts": {
@@ -47,7 +47,9 @@
     "typescript": "^6.0.3"
   },
   "pkg": {
-    "assets": ["public/**/*"],
+    "assets": [
+      "public/**/*"
+    ],
     "compress": "GZip"
   }
 }
