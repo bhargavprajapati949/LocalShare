@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LAN File Host</title>
+  <script src="/js/tailwind.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a', 950: '#172554', },
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], },
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .glass-card {
+        @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/20 dark:border-slate-800 shadow-xl;
+      }
+      .input-base {
+        @apply w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all;
+      }
+      .btn-base {
+        @apply px-4 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center;
+      }
+      .btn-primary {
+        @apply btn-base bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-brand-500/20 border-t border-white/20;
+      }
+      .btn-secondary {
+        @apply btn-base bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700;
+      }
+      .btn-danger {
+        @apply btn-base bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-red-500/20 border-t border-white/20;
+      }
+      .btn-compact { @apply px-3 py-1.5 text-sm; }
+      
+      .item .name { @apply flex-1 min-w-0 font-medium text-slate-700 dark:text-slate-300 whitespace-normal break-words pr-4; }
+      .item .name button { @apply text-brand-600 dark:text-brand-400 hover:underline focus:outline-none text-left w-full break-words; }
+      .muted { @apply text-slate-500 dark:text-slate-400 text-xs sm:text-sm; }
+      
+      /* Fixed width columns */
+      .col-size { @apply w-20 sm:w-28 text-right shrink-0 whitespace-nowrap overflow-hidden text-ellipsis leading-tight; }
+      .col-date { @apply w-28 sm:w-36 text-right shrink-0 whitespace-normal leading-tight; }
+      .col-actions { @apply w-24 sm:w-32 shrink-0; }
+
+      .entry-actions { @apply flex flex-col items-stretch gap-1.5 w-full; }
+      .list-header { @apply flex items-center gap-4 px-3 py-2 border-b border-slate-200 dark:border-slate-800 mb-2 text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider; }
+      .sort-btn { @apply hover:text-slate-800 dark:hover:text-slate-200 focus:outline-none transition-colors; }
+      .icon-btn { @apply text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors bg-red-50 dark:bg-red-900/20 px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase border border-red-100 dark:border-red-800/50; }
+      
+      .download-item { @apply flex flex-col py-3 border-b border-slate-100 dark:border-slate-800/50 last:border-0; }
+      .download-top { @apply flex justify-between items-center mb-1.5; }
+      .download-name { @apply font-medium text-sm text-slate-800 dark:text-slate-200 truncate pr-4; }
+      .download-status { @apply text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400; }
+      .download-meta { @apply flex justify-between items-center mt-1.5 text-xs text-slate-500 dark:text-slate-400; }
+      .download-actions { @apply flex gap-2 mt-2 justify-end; }
+      .download-actions button { @apply px-3 py-1 rounded-lg text-xs font-medium transition-colors shadow-sm; }
+      .download-actions button[data-action="cancel"] { @apply bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/40; }
+      .download-actions button[data-action="pause"], .download-actions button[data-action="start"] { @apply bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700; }
+    }
+    
+    body {
+      @apply bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased min-h-screen relative overflow-x-hidden;
+    }
+    /* Dynamic background */
+    .bg-blobs {
+      position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+    }
+    .blob {
+      position: absolute; filter: blur(80px); border-radius: 50%; animation: float 20s infinite ease-in-out alternate; opacity: 0.5;
+    }
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(50px, 50px) scale(1.1); }
+    }
+    .list { @apply flex flex-col gap-1; }
+    .item { @apply flex items-center justify-between p-3 rounded-xl hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200/50 dark:hover:border-slate-700/50 gap-4; }
+    .progress-bar-wrap { @apply h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-2; }
+    .progress-bar { @apply h-full bg-brand-500 rounded-full transition-all duration-300 ease-out; width: 0%; }
+    .dl-btn { @apply px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-800/50 transition-all duration-200 hover:bg-brand-600 hover:text-white hover:shadow-lg hover:shadow-brand-500/30 active:scale-95 disabled:opacity-50 disabled:pointer-events-none; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 sm:p-8">
+  <div class="bg-blobs">
+    <div class="blob bg-brand-300/30 dark:bg-brand-900/30 w-96 h-96 top-[-10%] left-[-10%]"></div>
+    <div class="blob bg-purple-300/30 dark:bg-purple-900/30 w-96 h-96 bottom-[-10%] right-[-10%] animation-delay-2000"></div>
+  </div>
+
+  <div id="pinOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+    <div class="glass-card rounded-2xl p-8 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300">
+      <div class="w-16 h-16 bg-brand-100 dark:bg-brand-900/50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+        <svg class="w-8 h-8 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-center mb-2">Secured Access</h2>
+      <p class="text-slate-500 dark:text-slate-400 text-center text-sm mb-6">Enter the host PIN to access files.</p>
+      <input id="pinOverlayInput" type="password" inputmode="numeric" maxlength="16" placeholder="Enter PIN" class="input-base text-center tracking-widest text-2xl font-mono mb-2" autocomplete="off" />
+      <div id="pinOverlayError" class="text-red-500 text-sm text-center min-h-[20px] mb-4"></div>
+      <button id="pinOverlaySubmit" class="btn-primary w-full">Unlock Access</button>
+    </div>
+  </div>
+
+  <main class="max-w-5xl mx-auto glass-card rounded-3xl p-6 sm:p-10">
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 border-b border-slate-200 dark:border-slate-800 pb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+          </div>
+          LocalShare
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 mt-2 text-sm">Seamless file transfer across your network.</p>
+      </div>
+      <button id="refresh" class="btn-secondary whitespace-nowrap self-end sm:self-center">
+        <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        Refresh
+      </button>
+    </header>
+
+    <div class="flex flex-col sm:flex-row gap-6 mb-8 items-end">
+      <div class="flex-1 w-full">
+        <select id="root" class="input-base hidden"></select>
+        <div id="rootLabel" class="input-base bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed hidden"></div>
+      </div>
+      
+      <div id="pinInputContainer" class="flex-1 w-full hidden">
+        <label for="pinInput" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 ml-1">Session PIN</label>
+        <input id="pinInput" type="password" inputmode="numeric" placeholder="Enter PIN to browse" class="input-base" autocomplete="off" />
+      </div>
+
+      <div class="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 dark:bg-slate-900/50 px-4 h-[46px] rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors whitespace-nowrap">
+        <input id="downloadModeToggle" type="checkbox" class="rounded text-brand-500 focus:ring-brand-500 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600" />
+        <label for="downloadModeToggle" class="cursor-pointer">Browser Downloads</label>
+      </div>
+    </div>
+
+    <div id="dirActions" class="flex gap-4 mb-8 hidden">
+      <input id="newDirName" type="text" placeholder="New folder name..." class="input-base flex-1" autocomplete="off" />
+      <button id="createDirBtn" class="btn-primary whitespace-nowrap">Create Folder</button>
+    </div>
+
+    <div class="bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div id="breadcrumb" class="bg-white/50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 overflow-x-auto whitespace-nowrap">
+      </div>
+      <div id="list" class="list p-2"></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10">
+      <section id="uploadPanel" class="bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hidden">
+        <h3 class="text-lg font-semibold mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          Uploads
+        </h3>
+        <div class="flex flex-col gap-4 mb-6">
+          <div class="flex items-center gap-3">
+            <input id="fileInput" type="file" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 dark:file:bg-slate-800 dark:file:text-brand-400 dark:hover:file:bg-slate-700 cursor-pointer transition-colors" />
+            <button id="uploadBtn" class="btn-primary btn-compact whitespace-nowrap disabled:opacity-50">Upload File</button>
+          </div>
+          <div class="flex items-center gap-3">
+            <input id="dirInput" type="file" webkitdirectory directory multiple class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-slate-800 dark:file:text-purple-400 dark:hover:file:bg-slate-700 cursor-pointer transition-colors" />
+            <button id="uploadDirBtn" class="btn-primary btn-compact whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:opacity-50 shadow-purple-500/20">Upload Folder</button>
+          </div>
+        </div>
+        <div id="uploadItems" class="space-y-4">
+          <div class="text-slate-500 text-sm text-center py-4">No uploads active.</div>
+        </div>
+      </section>
+
+      <section class="bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+        <h3 class="text-lg font-semibold mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Downloads
+        </h3>
+        <div id="downloadItems" class="space-y-4">
+          <div class="text-slate-500 text-sm text-center py-4">No downloads active.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+  
+  <footer class="mt-12 mb-8 text-center">
+    <a href="https://bhargavprajapati949.github.io/LocalShare/#feedback" target="_blank" class="text-slate-400 hover:text-brand-500 transition-colors text-sm font-medium">Feedback & Bug Reports</a>
+  </footer>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

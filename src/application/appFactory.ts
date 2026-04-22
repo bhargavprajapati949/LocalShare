@@ -18,7 +18,6 @@ import multer from 'multer';
 import type { AppConfig } from '../infrastructure/config';
 import { getDefaultMdnsDomainName, getLanIPv4Candidates } from '../infrastructure/config';
 import { generateQrDataUrl } from '../infrastructure/qrService';
-import { renderHomePage, renderClientUI, renderAdminUI } from '../interface/html';
 import { isLoopbackAddress } from '../domain/models/hostSession';
 import type { FileSystemPort, HostSessionPort } from '../domain/ports';
 import type { ListFilesUseCase } from './useCases/listFiles';
@@ -223,11 +222,13 @@ export function createApp(
 
   // ============ Routes ============
 
+  app.use(express.static(path.join(__dirname, '../../public')));
+
   /**
    * GET / - Client UI (file browsing and downloads)
    */
   app.get('/', (_req, res) => {
-    res.type('html').send(renderClientUI());
+    res.sendFile(path.join(__dirname, '../../public/index.html'));
   });
 
   /**
@@ -240,7 +241,7 @@ export function createApp(
       });
       return;
     }
-    res.type('html').send(renderAdminUI());
+    res.sendFile(path.join(__dirname, '../../public/admin.html'));
   });
 
   /**

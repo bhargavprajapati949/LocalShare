@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LAN File Host - Admin</title>
+  <script src="/js/tailwind.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a', 950: '#172554', },
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], },
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .glass-card { @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/20 dark:border-slate-800 shadow-xl; }
+      .input-base { @apply w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all; }
+      .btn-base { @apply px-4 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center; }
+      .btn-primary { @apply btn-base bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-brand-500/20 border-t border-white/20; }
+      .btn-secondary { @apply btn-base bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700; }
+      .btn-danger { @apply btn-base bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-red-500/20 border-t border-white/20; }
+      .section-title { @apply text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2; }
+      .section-desc { @apply text-sm text-slate-500 dark:text-slate-400 mb-4; }
+      .panel-section { @apply mt-10 pt-8 border-t border-slate-200 dark:border-slate-800; }
+    }
+    
+    body {
+      @apply bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased min-h-screen relative overflow-x-hidden;
+    }
+    .bg-blobs { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+    .blob { position: absolute; filter: blur(80px); border-radius: 50%; animation: float 20s infinite ease-in-out alternate; opacity: 0.5; }
+    @keyframes float { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(50px, 50px) scale(1.1); } }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 sm:p-8">
+  <div class="bg-blobs">
+    <div class="blob bg-brand-300/30 dark:bg-brand-900/30 w-96 h-96 top-[-10%] left-[-10%]"></div>
+    <div class="blob bg-purple-300/30 dark:bg-purple-900/30 w-96 h-96 bottom-[-10%] right-[-10%] animation-delay-2000"></div>
+  </div>
+
+  <main class="max-w-4xl mx-auto glass-card rounded-3xl p-6 sm:p-10">
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 pb-8 border-b border-slate-200 dark:border-slate-800">
+      <div>
+        <h1 class="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 rounded-xl flex items-center justify-center shadow-lg shadow-slate-900/30">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          </div>
+          Admin Panel
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 mt-2 text-sm">Manage LocalShare settings and sharing state.</p>
+      </div>
+      <div class="flex gap-3">
+        <button id="toggleSharing" class="btn-primary hidden">Start Sharing</button>
+        <button id="refreshStatus" class="btn-secondary">Refresh</button>
+      </div>
+    </header>
+
+    <div id="warning" class="mb-6 p-4 rounded-xl text-sm border font-medium flex items-center gap-3">Loading...</div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      <div class="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 block">Sharing Status</span>
+        <div id="sharingState" class="font-medium">--</div>
+      </div>
+      <div class="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 block">Host IPs</span>
+        <div id="hostIps" class="font-mono text-sm text-brand-600 dark:text-brand-400 whitespace-pre-line">--</div>
+      </div>
+      <div id="qrBox" class="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center gap-3 invisible">
+        <img id="qrImg" src="" alt="QR" class="w-28 h-28 rounded-xl bg-white p-1.5 shadow-sm" />
+        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Share Link</div>
+      </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-4 mb-10">
+      <div class="flex-1">
+        <label for="shareRootPath" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Shared Directory Path</label>
+        <input id="shareRootPath" type="text" placeholder="Absolute path..." class="input-base" autocomplete="off" />
+        <div id="shareRootStatus" class="mt-2 text-sm empty:hidden"></div>
+      </div>
+      <div class="flex items-start pt-[1.75rem] gap-2">
+        <button id="pickShareRoot" class="btn-secondary h-[46px] whitespace-nowrap">Choose Directory</button>
+        <button id="applyShareRoot" class="btn-primary h-[46px]">Apply</button>
+      </div>
+    </div>
+
+    <section class="panel-section space-y-6">
+      <div>
+        <h2 class="section-title">Permissions & Transfers</h2>
+        <p class="section-desc">Control what clients can do and manage upload limits.</p>
+      </div>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors">
+          <input id="readEnabled" type="checkbox" class="w-5 h-5 rounded text-brand-500 focus:ring-brand-500 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600" />
+          <span class="text-sm font-medium">Allow read operations</span>
+        </label>
+        <label class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors">
+          <input id="uploadEnabled" type="checkbox" class="w-5 h-5 rounded text-brand-500 focus:ring-brand-500 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600" />
+          <span class="text-sm font-medium">Allow uploads</span>
+        </label>
+        <label class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors">
+          <input id="createEnabled" type="checkbox" class="w-5 h-5 rounded text-brand-500 focus:ring-brand-500 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600" />
+          <span class="text-sm font-medium">Allow folder creation</span>
+        </label>
+        <label class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors">
+          <input id="deleteEnabled" type="checkbox" class="w-5 h-5 rounded text-brand-500 focus:ring-brand-500 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600" />
+          <span class="text-sm font-medium">Allow deletion</span>
+        </label>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label for="uploadMaxSizeMb" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Max Upload Size (MB)</label>
+          <input id="uploadMaxSizeMb" type="number" min="1" max="51200" step="1" class="input-base" />
+        </div>
+        <button id="saveTransfer" class="btn-primary h-[46px]">Save Settings</button>
+      </div>
+      <p id="transferStatus" class="text-sm font-medium mt-3 empty:hidden"></p>
+    </section>
+
+    <section class="panel-section space-y-6">
+      <div>
+        <h2 class="section-title">Session Security (PIN)</h2>
+        <p class="section-desc">Require a PIN for clients to access files. Leave empty for open access.</p>
+      </div>
+
+      <div id="pinStatusBox" class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 text-sm font-medium mb-4">Loading...</div>
+      
+      <div class="flex flex-col sm:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label for="pinValue" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">New PIN (4-16 digits)</label>
+          <input id="pinValue" type="password" inputmode="numeric" maxlength="16" class="input-base" autocomplete="off" />
+        </div>
+        <div class="flex gap-2 h-[46px]">
+          <button id="savePinBtn" class="btn-primary">Set PIN</button>
+          <button id="clearPinBtn" class="btn-danger" style="display: none;">Disable</button>
+        </div>
+      </div>
+      <p id="pinSaveStatus" class="text-sm font-medium mt-3 empty:hidden"></p>
+    </section>
+
+    <section class="panel-section space-y-6">
+      <div>
+        <h2 class="section-title">WebDAV Integration</h2>
+        <p class="section-desc">Mount LocalShare natively in Finder, Windows Explorer, or mobile file apps.</p>
+      </div>
+
+      <label class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 cursor-pointer mb-4">
+        <input id="webdavEnabled" type="checkbox" class="w-5 h-5 rounded text-brand-500" />
+        <span class="text-sm font-medium">Enable WebDAV Mode</span>
+      </label>
+      
+      <div id="webdavStatus" class="text-sm mb-4"></div>
+      <div id="webdavUrlsContainer" class="bg-slate-900 rounded-xl p-4 border border-slate-800 hidden">
+        <div class="text-xs text-slate-400 mb-2 font-semibold tracking-wider uppercase">Connection URLs</div>
+        <div id="webdavUrls" class="font-mono text-sm text-brand-400 whitespace-pre-wrap break-all">Loading...</div>
+      </div>
+    </section>
+
+    <section class="panel-section space-y-6">
+      <div>
+        <h2 class="section-title">Network & Discovery</h2>
+        <p class="section-desc">Configure local mDNS domain name.</p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label for="domainName" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Custom Domain (.local)</label>
+          <input id="domainName" type="text" placeholder="e.g. my-files.local" class="input-base" autocomplete="off" />
+        </div>
+        <button id="saveDomain" class="btn-primary h-[46px]">Save Domain</button>
+      </div>
+      <p id="domainStatus" class="text-sm text-slate-500 mt-2"></p>
+    </section>
+
+    <section class="panel-section space-y-6">
+      <div class="bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+        <h2 class="section-title mb-6">Discovery Diagnostics</h2>
+        
+        <div class="space-y-6">
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Configured Domain</h3>
+            <div id="healthDomain" class="font-mono text-sm bg-white dark:bg-slate-800 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700">Loading...</div>
+          </div>
+          
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Client URLs</h3>
+            <div id="healthUrls" class="space-y-2">Loading...</div>
+          </div>
+          
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Warnings</h3>
+            <ul id="healthWarnings" class="list-disc pl-5 text-sm text-amber-600 dark:text-amber-500 space-y-1">
+              <li>Loading...</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center">
+      <button id="openClientUI" class="btn-primary inline-flex">Open Client UI</button>
+    </div>
+  </main>
+  
+  <footer class="mt-8 mb-8 text-center">
+    <a href="https://bhargavprajapati949.github.io/LocalShare/#feedback" target="_blank" class="text-slate-400 hover:text-brand-500 transition-colors text-sm font-medium">Feedback & Bug Reports</a>
+  </footer>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

@@ -29,7 +29,7 @@ export class HostSessionState implements HostSessionPort {
   private uploadEnabled = true;
   private maxUploadSizeMb = 51200;
   private modifyEnabled = true;
-  private deleteEnabled = true;
+  private deleteEnabled = false;
   private readEnabled = true;
   private webdavEnabled = false;
 
