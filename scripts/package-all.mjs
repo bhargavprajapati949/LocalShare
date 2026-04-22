@@ -14,7 +14,7 @@ for (const item of targets) {
   console.log(`Packaging ${item.target} -> ${item.output}`);
   const result = spawnSync(
     'npx',
-    ['pkg', 'dist/server.js', '--public', '--no-bytecode', '--target', item.target, '--output', item.output],
+    ['pkg', '.', '--public', '--no-bytecode', '--target', item.target, '--output', item.output],
     { stdio: 'inherit' },
   );
 

@@ -1,6 +1,6 @@
 # Features
 
-LAN File Host is a local-network file sharing app designed for fast, no-account transfer between devices on the same LAN.
+LocalShare is a local-network file sharing app designed for fast, no-account transfer between devices on the same LAN.
 
 ## Core Experience
 

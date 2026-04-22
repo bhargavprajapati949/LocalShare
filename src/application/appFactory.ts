@@ -105,7 +105,7 @@ export function createApp(
     const effectivePin = sessionState.getSessionPin() ?? config.sessionPin;
 
     return {
-      appName: 'LAN File Host',
+      appName: 'LocalShare',
       version: '1.0.0',
       host: config.host,
       port: config.port,

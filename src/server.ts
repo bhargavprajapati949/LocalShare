@@ -53,21 +53,21 @@ function main(): void {
 
     const previous = activeService;
     const serviceConfig = {
-      name: 'LAN File Host',
+      name: 'LocalShare',
       type: 'http',
       host: domainName,
       port: config.port,
       addresses: lanAddresses.length ? lanAddresses : undefined,
       txt: {
         path: '/',
-        description: 'LAN File Host',
+        description: 'LocalShare',
         domain: domainName,
       },
     } as unknown as Parameters<typeof bonjour.publish>[0];
 
     try {
       const svc = bonjour.publish(serviceConfig);
-      
+
       // Attach error handler to catch mDNS conflicts
       if (svc && typeof svc === 'object' && 'on' in svc) {
         (svc as any).on('error', (err: Error) => {
@@ -87,7 +87,7 @@ function main(): void {
           }
         });
       }
-      
+
       activeService = svc;
 
       if (previous?.stop) {
@@ -95,7 +95,7 @@ function main(): void {
       }
 
       console.log(`mDNS enabled - Access at: http://${domainName}:${config.port}`);
-      console.log('mDNS: advertising LAN File Host on local network');
+      console.log('mDNS: advertising LocalShare on local network');
     } catch (error) {
       console.warn(`mDNS error: ${error instanceof Error ? error.message : String(error)}`);
       // Server continues to work without mDNS if publishing fails
@@ -124,7 +124,7 @@ function main(): void {
       .map((ip) => `http://${ip}:${config.port}`)
       .join('\n');
 
-    console.log('LAN File Host started');
+    console.log('LocalShare started');
     console.log(`Local URL: http://localhost:${config.port}`);
     if (addresses) {
       console.log(`LAN URLs:\n${addresses}`);

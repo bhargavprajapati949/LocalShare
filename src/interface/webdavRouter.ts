@@ -180,12 +180,12 @@ export function createDavRouter(
           if (password === effectivePin) {
             // Basic auth OK - fall through
           } else {
-            res.setHeader('WWW-Authenticate', 'Basic realm="LAN File Host WebDAV"');
+            res.setHeader('WWW-Authenticate', 'Basic realm="LocalShare WebDAV"');
             res.status(401).end('Unauthorized');
             return;
           }
         } else {
-          res.setHeader('WWW-Authenticate', 'Basic realm="LAN File Host WebDAV"');
+          res.setHeader('WWW-Authenticate', 'Basic realm="LocalShare WebDAV"');
           res.status(401).end('Unauthorized');
           return;
         }
@@ -239,7 +239,7 @@ export function createDavRouter(
       const parsed = parseDavPath(req.path);
       if (!parsed) {
         const entries: PropEntry[] = [
-          { href: `${davBase}/`, name: 'LAN File Host', isDirectory: true, size: 0, mtime: new Date(), contentType: 'httpd/unix-directory' },
+          { href: `${davBase}/`, name: 'LocalShare', isDirectory: true, size: 0, mtime: new Date(), contentType: 'httpd/unix-directory' },
           ...config.roots.map((root) => ({
             href: `${davBase}/${root.id}/`, name: root.name, isDirectory: true, size: 0, mtime: new Date(), contentType: 'httpd/unix-directory',
           })),

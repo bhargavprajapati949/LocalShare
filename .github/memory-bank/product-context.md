@@ -1,7 +1,7 @@
 # Product Context
 
 ## Product Name
-LAN File Host
+LocalShare
 
 ## Problem
 Users need fast, frictionless file transfer between devices on the same network without cloud uploads, account login, or cable dependency.

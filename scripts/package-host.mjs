@@ -25,7 +25,7 @@ mkdirSync('release', { recursive: true });
 
 const result = spawnSync(
   'npx',
-  ['pkg', 'dist/server.js', '--public', '--no-bytecode', '--target', target, '--output', `release/${outputName}`],
+  ['pkg', '.', '--public', '--no-bytecode', '--target', target, '--output', `release/${outputName}`],
   { stdio: 'inherit' },
 );
 

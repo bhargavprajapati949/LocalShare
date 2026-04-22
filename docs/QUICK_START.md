@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide helps you run LAN File Host in minutes.
+This guide helps you run LocalShare in minutes.
 
 ## Prerequisites
 
