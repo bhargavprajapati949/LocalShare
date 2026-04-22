@@ -194,22 +194,44 @@ export class FileSystemAdapter implements FileSystemPort {
         return err(new FileAccessError('Invalid filename'));
       }
 
-      // Build final path
-      const absPath = path.join(targetDir.absPath, safeFilename);
-
-      // Verify final path is still within root
-      const root = { absPath: targetDir.absPath.split('/').slice(0, -targetDir.relPath.split('/').filter(Boolean).length).join('/') };
-      if (!this.isInsideRoot(root.absPath || targetDir.absPath, absPath)) {
-        return err(new FileAccessError('File path would escape root'));
+      const root = this.roots.find((r) => r.id === targetDir.rootId);
+      if (!root) {
+        return err(new FileAccessError('Invalid root'));
       }
 
-      // Write file
-      await fsp.writeFile(absPath, data);
+      const ext = path.extname(safeFilename);
+      const base = ext ? safeFilename.slice(0, -ext.length) : safeFilename;
 
-      return ok({
-        absPath,
-        relPath: targetDir.relPath ? `${targetDir.relPath}/${safeFilename}` : safeFilename,
-      });
+      // Use exclusive writes so duplicate names become `name (1).ext`, `name (2).ext`, etc.
+      for (let index = 0; index < 10000; index += 1) {
+        const finalFilename = index === 0 ? safeFilename : `${base} (${index})${ext}`;
+        const absPath = path.join(targetDir.absPath, finalFilename);
+
+        if (!this.isInsideRoot(root.absPath, absPath)) {
+          return err(new FileAccessError('File path would escape root'));
+        }
+
+        try {
+          await fsp.writeFile(absPath, data, { flag: 'wx' });
+          return ok({
+            absPath,
+            relPath: targetDir.relPath ? `${targetDir.relPath}/${finalFilename}` : finalFilename,
+          });
+        } catch (error) {
+          if (error instanceof Error && 'code' in error) {
+            const code = (error as any).code;
+            if (code === 'EEXIST') {
+              continue;
+            }
+            if (code === 'EACCES') {
+              return err(new FileAccessError('Permission denied'));
+            }
+          }
+          return err(new FileAccessError('Failed to save file'));
+        }
+      }
+
+      return err(new FileAccessError('Failed to resolve unique filename'));
     } catch (error) {
       if (error instanceof Error && 'code' in error) {
         const code = (error as any).code;

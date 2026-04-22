@@ -63,3 +63,36 @@ test('resolveTarget rejects path traversal outside selected root', async () => {
     }
   });
 });
+
+test('saveUploadedFile preserves existing file by creating incremented filename', async () => {
+  await withTempRoot(async (rootPath) => {
+    const roots: ShareRoot[] = [
+      {
+        id: '0',
+        name: 'tmp',
+        absPath: rootPath,
+      },
+    ];
+
+    const adapter = new FileSystemAdapter(roots);
+    await fsp.writeFile(path.join(rootPath, 'report.txt'), 'original');
+    await fsp.writeFile(path.join(rootPath, 'report (1).txt'), 'existing-copy');
+
+    const target = adapter.resolveTarget('0', '');
+    assert.equal(target.ok, true);
+    if (!target.ok) {
+      return;
+    }
+
+    const result = await adapter.saveUploadedFile(target.value, 'report.txt', Buffer.from('new-data'));
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      return;
+    }
+
+    assert.equal(result.value.relPath, 'report (2).txt');
+    assert.equal(await fsp.readFile(path.join(rootPath, 'report.txt'), 'utf-8'), 'original');
+    assert.equal(await fsp.readFile(path.join(rootPath, 'report (1).txt'), 'utf-8'), 'existing-copy');
+    assert.equal(await fsp.readFile(path.join(rootPath, 'report (2).txt'), 'utf-8'), 'new-data');
+  });
+});

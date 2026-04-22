@@ -4,7 +4,9 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
             pinInputEl=document.getElementById("pinInput"),pinInputContainerEl=document.getElementById("pinInputContainer"),
             refreshEl=document.getElementById("refresh"),
             downloadModeToggleEl=document.getElementById("downloadModeToggle"),downloadItemsEl=document.getElementById("downloadItems"),
-            fileInputEl=document.getElementById("fileInput"),uploadBtnEl=document.getElementById("uploadBtn"),dirInputEl=document.getElementById("dirInput"),uploadDirBtnEl=document.getElementById("uploadDirBtn"),uploadItemsEl=document.getElementById("uploadItems"),uploadPanelEl=document.getElementById("uploadPanel"),
+            fileInputEl=document.getElementById("fileInput"),uploadBtnEl=document.getElementById("uploadBtn"),dirInputEl=document.getElementById("dirInput"),uploadDirBtnEl=document.getElementById("uploadDirBtn"),
+
+            uploadItemsEl=document.getElementById("uploadItems"),uploadPanelEl=document.getElementById("uploadPanel"),
             rootLabelEl=document.getElementById("rootLabel"),
             dirActionsEl=document.getElementById("dirActions"),newDirNameEl=document.getElementById("newDirName"),createDirBtnEl=document.getElementById("createDirBtn"),
             pinOverlayEl=document.getElementById("pinOverlay"),pinOverlayInputEl=document.getElementById("pinOverlayInput"),
@@ -17,6 +19,10 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         return {val,unit:u[i],full:val+" "+u[i]};
       }
       function apiUrl(ep,p={}){const u=new URL(ep,window.location.origin);for(const[k,v]of Object.entries(p))if(v!=null&&v!=="")u.searchParams.set(k,String(v));return u;}
+      function asFiniteNumber(value,fallback){
+        const n=Number(value);
+        return Number.isFinite(n)?n:fallback;
+      }
       const PIN_KEY="lan_file_host_pin",storedPin=()=>sessionStorage.getItem(PIN_KEY)||"",
             savePin=(p)=>p?sessionStorage.setItem(PIN_KEY,p):sessionStorage.removeItem(PIN_KEY),
             clearPin=()=>{sessionStorage.removeItem(PIN_KEY);state.pin="";pinInputEl.value="";};
@@ -213,8 +219,8 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         uploadPanelEl.classList.toggle('hidden', !state.uploadEnabled);
         fileInputEl.disabled=!state.uploadEnabled;
         dirInputEl.disabled=!state.uploadEnabled;
-        uploadDirBtnEl.disabled=!state.uploadEnabled||!dirInputEl.files?.length;
-        uploadBtnEl.disabled=!state.uploadEnabled||!fileInputEl.files?.length;
+        uploadBtnEl.disabled=!state.uploadEnabled;
+        uploadDirBtnEl.disabled=!state.uploadEnabled;
         dirActionsEl.classList.toggle('hidden', !state.createEnabled);
         const hasCurrentRoot=s.roots.some((root)=>root.id===state.root);
         state.root=hasCurrentRoot?state.root:((s.roots[0]&&s.roots[0].id)||"");
@@ -460,19 +466,19 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         if(state.downloadMode==="browser"){triggerBrowserManagedDownloadDirectory(relPath);return;}
         await startManagedDownloadDirectory(relPath);
       }
-       function handleFileSelect(e){
-         const file=e.target.files?.[0];
-         if(!file)return;
-         const sizeMb=file.size/(1024*1024);
-         if(sizeMb>state.uploadMaxSizeMb){alert("File exceeds "+state.uploadMaxSizeMb+" MB limit");fileInputEl.value="";return;}
-         uploadBtnEl.disabled=false;
+       async function handleFileSelect(e){
+         const files=Array.from(e.target.files||[]);
+         if(!files.length)return;
+         const over=files.find((f)=>(f.size/(1024*1024))>state.uploadMaxSizeMb);
+         if(over){alert('"'+over.name+'" exceeds '+state.uploadMaxSizeMb+' MB limit');fileInputEl.value="";return;}
+         await uploadFiles(files);
        }
        function handleDirectorySelect(e){
          const files=Array.from(e.target.files||[]);
          if(!files.length)return;
          const over=files.find((f)=>(f.size/(1024*1024))>state.uploadMaxSizeMb);
-         if(over){alert('"'+over.name+'" exceeds '+state.uploadMaxSizeMb+' MB limit');dirInputEl.value="";uploadDirBtnEl.disabled=true;return;}
-         uploadDirBtnEl.disabled=false;
+         if(over){alert('"'+over.name+'" exceeds '+state.uploadMaxSizeMb+' MB limit');dirInputEl.value="";return;}
+         uploadDirectory();
        }
        function pauseUpload(id){
          const upload=state.uploads.get(id);
@@ -517,11 +523,11 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
            xhr.addEventListener("load",()=>{
              upload.chunkXhr=null;
              if(xhr.status===409){
-               try{const c=JSON.parse(xhr.responseText);upload.received=Number(c.expectedOffset)||chunkStart;}catch{}
+               try{const c=JSON.parse(xhr.responseText);upload.received=asFiniteNumber(c.expectedOffset,chunkStart);}catch{}
                resolve({conflict:true});return;
              }
              if(xhr.status===200||xhr.status===201){
-               try{const d=JSON.parse(xhr.responseText);upload.received=Number(d.receivedBytes)||chunkEnd;}catch{upload.received=chunkEnd;}
+               try{const d=JSON.parse(xhr.responseText);upload.received=asFiniteNumber(d.receivedBytes,chunkEnd);}catch{upload.received=chunkEnd;}
                resolve({conflict:false});return;
              }
              let msg="Chunk upload failed";
@@ -542,9 +548,29 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
            xhr.send(chunkBlob);
          });
        }
-       async function startUpload(id){
+      function getActiveUpload(){
+        return Array.from(state.uploads.values()).find((u)=>u.status==="uploading")||null;
+      }
+      function processUploadQueue(){
+        if(getActiveUpload())return;
+        const next=Array.from(state.uploads.values()).find((u)=>u.status==="queued");
+        if(next)startUpload(next.id,{fromQueue:true});
+      }
+       function removeUpload(id){
+        const u=state.uploads.get(id);
+        if(u&&u.chunkXhr)u.chunkXhr.abort();
+        state.uploads.delete(id);
+        renderUploadPanel();
+      }
+      async function startUpload(id,opts={}){
+         const {fromQueue=false}=opts;
          const upload=state.uploads.get(id);
          if(!upload||!upload.file||upload.status==="uploading")return;
+         const active=getActiveUpload();
+         if(active&&active.id!==id){
+           if(!fromQueue)alert("Another upload is in progress. Pause or cancel it before starting another file.");
+           return;
+         }
          if(!state.uploadEnabled){upload.status="error";upload.error="Uploads are disabled by host";renderUploadPanel();return;}
          upload.status="uploading";
          upload.error=null;
@@ -561,10 +587,10 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
              if(!initResp.ok){const e=await initResp.json().catch(()=>({error:"Failed to initialize upload"}));throw new Error(e.error||"Failed to initialize upload");}
              const initData=await initResp.json();
              upload.uploadId=initData.uploadId;
-             upload.received=Number(initData.receivedBytes)||0;
+             upload.received=asFiniteNumber(initData.receivedBytes,0);
            }else{
              const statusResp=await fetch(apiUrl("/api/upload/resumable/status",{uploadId:upload.uploadId,pin:currentPin()}));
-             if(statusResp.ok){const s=await statusResp.json();upload.received=Number(s.receivedBytes)||upload.received;}
+             if(statusResp.ok){const s=await statusResp.json();upload.received=asFiniteNumber(s.receivedBytes,upload.received);}
            }
            renderUploadPanel();
            while(upload.received<upload.size){
@@ -598,21 +624,34 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
            upload.chunkXhr=null;
            upload.abortReason="";
            renderUploadPanel();
+           if(upload.status!=="paused"&&upload.status!=="uploading")processUploadQueue();
          }
        }
-       async function uploadFile(){
-         const file=fileInputEl.files?.[0];
+      function enqueueUploadFile(file,targetPath){
+        const id=Math.random().toString(36).slice(2);
+        const upload={id,filename:file.name,size:file.size,received:0,status:"queued",error:null,speed:0,startTime:Date.now(),file,chunkXhr:null,uploadId:null,abortReason:"",targetPath};
+        state.uploads.set(id,upload);
+        return id;
+      }
+      async function uploadFiles(files){
+        if(!files.length)return;
+        if(!state.uploadEnabled){alert("Uploads are disabled by host");fileInputEl.value="";return;}
+        for(const file of files){
+          const sizeMb=file.size/(1024*1024);
+          if(sizeMb>state.uploadMaxSizeMb){
+           alert('"'+file.name+'" exceeds '+state.uploadMaxSizeMb+' MB limit');
+           continue;
+          }
+          enqueueUploadFile(file,state.path);
+        }
+        fileInputEl.value="";
+        renderUploadPanel();
+        processUploadQueue();
+      }
+      async function uploadFile(){
+        const file=fileInputEl.files?.[0];
          if(!file)return;
-         const sizeMb=file.size/(1024*1024);
-         if(sizeMb>state.uploadMaxSizeMb){alert("File exceeds "+state.uploadMaxSizeMb+" MB limit");fileInputEl.value="";uploadBtnEl.disabled=true;return;}
-         if(!state.uploadEnabled){alert("Uploads are disabled by host");return;}
-         const id=Math.random().toString(36).slice(2);
-         const upload={id,filename:file.name,size:file.size,received:0,status:"queued",error:null,speed:0,startTime:Date.now(),file,chunkXhr:null,uploadId:null,abortReason:"",targetPath:state.path};
-         state.uploads.set(id,upload);
-         fileInputEl.value="";
-         uploadBtnEl.disabled=true;
-         renderUploadPanel();
-         startUpload(id);
+        await uploadFiles([file]);
        }
        async function ensureDirectoryChain(targetRelPath){
          const clean=normalizeRelPath(targetRelPath);
@@ -644,16 +683,11 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
            const slashIdx=relFromDir.lastIndexOf("/");
            const dirPart=slashIdx===-1?"":relFromDir.slice(0,slashIdx);
            const targetPath=joinRelPath(rootPrefix,dirPart);
-           const id=Math.random().toString(36).slice(2);
-           state.uploads.set(id,{id,filename:file.name,size:file.size,received:0,status:"queued",error:null,speed:0,startTime:Date.now(),file,chunkXhr:null,uploadId:null,abortReason:"",targetPath});
+           enqueueUploadFile(file,targetPath);
          }
          dirInputEl.value="";
-         uploadDirBtnEl.disabled=true;
          renderUploadPanel();
-         for(const item of Array.from(state.uploads.values()).filter((u)=>u.status==="queued"&&u.targetPath!==undefined)){
-           // Sequential start reduces local memory and avoids overloading low-end hosts.
-           await startUpload(item.id);
-         }
+         processUploadQueue();
        }
        function renderUploadPanel(){
          const items=Array.from(state.uploads.values());
@@ -695,11 +729,21 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
            const actionsEl=row.querySelector(".download-actions");
            if(actionsEl.dataset.lastStatus!==u.status){
              actionsEl.dataset.lastStatus=u.status;
-             actionsEl.innerHTML=u.status==="uploading"
-               ?'<button class="secondary" data-action="pause" data-id="'+u.id+'">Pause</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
-               :(u.status==="paused"||u.status==="error"||u.status==="queued")
-                 ?'<button data-action="start" data-id="'+u.id+'">Start</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>'
-                 :'';
+             if(u.status==="uploading"){
+               actionsEl.innerHTML='<button class="secondary" data-action="pause" data-id="'+u.id+'">Pause</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>';
+             }else if(u.status==="paused"){
+               actionsEl.innerHTML='<button data-action="start" data-id="'+u.id+'">Resume</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>';
+             }else if(u.status==="error"){
+               actionsEl.innerHTML='<button data-action="start" data-id="'+u.id+'">Retry</button><button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>';
+             }else if(u.status==="canceled"){
+               actionsEl.innerHTML='<button data-action="start" data-id="'+u.id+'">Restart</button><button class="secondary" data-action="remove" data-id="'+u.id+'">Remove</button>';
+             }else if(u.status==="completed"){
+               actionsEl.innerHTML='<button class="secondary" data-action="remove" data-id="'+u.id+'">Remove</button>';
+             }else if(u.status==="queued"){
+               actionsEl.innerHTML='<button class="danger" data-action="cancel" data-id="'+u.id+'">Cancel</button>';
+             }else{
+               actionsEl.innerHTML='';
+             }
            }
          });
        }
@@ -795,8 +839,8 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
       downloadModeToggleEl.addEventListener("change",()=>setDownloadMode(downloadModeToggleEl.checked?"browser":"managed"));
       fileInputEl.addEventListener("change",handleFileSelect);
       dirInputEl.addEventListener("change",handleDirectorySelect);
-      uploadBtnEl.addEventListener("click",uploadFile);
-      uploadDirBtnEl.addEventListener("click",uploadDirectory);
+      uploadBtnEl.addEventListener("click",()=>fileInputEl.click());
+      uploadDirBtnEl.addEventListener("click",()=>dirInputEl.click());
       createDirBtnEl.addEventListener("click",createDirectory);
       newDirNameEl.addEventListener("keydown",(e)=>{if(e.key==="Enter")createDirectory();});
       // Delegated listener for download panel — survives innerHTML re-renders
@@ -817,5 +861,6 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         if(action==="start")startUpload(id);
         else if(action==="pause")pauseUpload(id);
         else if(action==="cancel")cancelUpload(id);
+        else if(action==="remove")removeUpload(id);
       });
       (async()=>{setDownloadMode(state.downloadMode);renderDownloadPanel();renderUploadPanel();await loadStatus();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();

@@ -204,6 +204,45 @@ test('download endpoint supports HTTP range requests for resumable downloads', a
   });
 });
 
+test('upload API preserves existing file by auto-renaming duplicate filename', async () => {
+  await withTempRoot(async (rootPath) => {
+    await fsp.writeFile(path.join(rootPath, 'report.txt'), 'original-content');
+
+    const config: AppConfig = {
+      host: '0.0.0.0',
+      port: 8080,
+      roots: [
+        {
+          id: '0',
+          name: 'tmp',
+          absPath: rootPath,
+        },
+      ],
+      mdnsEnabled: false,
+    };
+
+    const sessionState = new HostSessionState();
+    const fileSystem = new FileSystemAdapter(config.roots);
+    const listFilesUseCase = new ListFilesUseCase(fileSystem, sessionState);
+    const downloadFileUseCase = new DownloadFileUseCase(fileSystem, sessionState);
+    const downloadDirectoryUseCase = new DownloadDirectoryUseCase(fileSystem, sessionState);
+    const uploadFileUseCase = new UploadFileUseCase(fileSystem, sessionState);
+    const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
+    const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
+
+    const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+
+    const response = await request(app)
+      .post('/api/upload?root=0&path=')
+      .attach('file', Buffer.from('new-content'), 'report.txt')
+      .expect(200);
+
+    assert.equal(response.body.file.relPath, 'report (1).txt');
+    assert.equal(await fsp.readFile(path.join(rootPath, 'report.txt'), 'utf-8'), 'original-content');
+    assert.equal(await fsp.readFile(path.join(rootPath, 'report (1).txt'), 'utf-8'), 'new-content');
+  });
+});
+
 test('list route supports sorting by name/size/date', async () => {
   await withTempRoot(async (rootPath) => {
     await fsp.writeFile(path.join(rootPath, 'b-file.txt'), 'bbbb');
