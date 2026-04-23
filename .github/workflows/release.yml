@@ -1,62 +1,102 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build & Release
+  prepare:
+    name: Bump Version
     runs-on: ubuntu-latest
-
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.git_sha.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Need full history + push access (uses GITHUB_TOKEN by default)
           fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Bump patch version
         id: version
         run: |
-          # Bump patch in package.json without creating a git tag
           NEW_VERSION=$(npm version patch --no-git-tag-version)
           echo "tag=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Bumped to ${NEW_VERSION}"
 
       - name: Commit version bump
+        id: git_sha
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json
           git commit -m "chore: bump version to ${{ steps.version.outputs.tag }} [skip ci]"
           git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Build all platform packages
-        run: npm run package:all
+  build:
+    name: Build on ${{ matrix.os }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            scripts: "package:linux-x64 package:windows-x64"
+          - os: macos-latest
+            scripts: "package:macos-x64 package:macos-arm64"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Platform Binaries
+        run: |
+          for script in ${{ matrix.scripts }}; do
+            npm run $script
+          done
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: release/*
+
+  publish:
+    name: Create GitHub Release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all compiled binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: release-binaries
+          merge-multiple: true 
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.sha }}
           make_latest: true
           generate_release_notes: true
-          files: |
-            release/localshare-linux-x64
-            release/localshare-macos-arm64
-            release/localshare-macos-x64-intel
-            release/localshare-win-x64.exe
+          files: release-binaries/*
