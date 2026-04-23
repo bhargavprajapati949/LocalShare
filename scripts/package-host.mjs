@@ -18,14 +18,14 @@ if (process.arch !== 'x64' && process.arch !== 'arm64') {
   process.exit(1);
 }
 
-const target = `node18-${mappedPlatform}-${process.arch}`;
+const target = `node20-${mappedPlatform}-${process.arch}`;
 const outputName = `localshare-${mappedPlatform}-${process.arch}${mappedPlatform === 'win' ? '.exe' : ''}`;
 
 mkdirSync('release', { recursive: true });
 
 const result = spawnSync(
   'npx',
-  ['pkg', '.', '--public', '--no-bytecode', '--target', target, '--output', `release/${outputName}`],
+  ['@yao-pkg/pkg', '.', '--public', '--no-bytecode', '--target', target, '--output', `release/${outputName}`],
   { stdio: 'inherit' },
 );
 

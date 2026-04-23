@@ -14,7 +14,7 @@ for (const item of targets) {
   console.log(`Packaging ${item.target} -> ${item.output}`);
   const result = spawnSync(
     'npx',
-    ['pkg', '.', '--public', '--no-bytecode', '--target', item.target, '--output', item.output],
+    ['@yao-pkg/pkg', '.', '--public', '--no-bytecode', '--target', item.target, '--output', item.output],
     { stdio: 'inherit' },
   );
 
