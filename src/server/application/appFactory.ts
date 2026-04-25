@@ -222,13 +222,13 @@ export function createApp(
 
   // ============ Routes ============
 
-  app.use(express.static(path.join(__dirname, '../../public')));
+  app.use(express.static(path.join(__dirname, '../../renderer')));
 
   /**
    * GET / - Client UI (file browsing and downloads)
    */
   app.get('/', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../../public/index.html'));
+    res.sendFile(path.join(__dirname, '../../renderer/index.html'));
   });
 
   /**
@@ -241,7 +241,7 @@ export function createApp(
       });
       return;
     }
-    res.sendFile(path.join(__dirname, '../../public/admin.html'));
+    res.sendFile(path.join(__dirname, '../../renderer/admin.html'));
   });
 
   /**
