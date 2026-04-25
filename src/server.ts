@@ -5,6 +5,7 @@
  * This is the composition root where all layers are connected.
  */
 
+import { exec } from 'node:child_process';
 import Bonjour from 'bonjour-service';
 import { loadConfig, getDefaultMdnsDomainName, getLanIPv4Candidates } from './infrastructure/config';
 import { FileSystemAdapter } from './infrastructure/fileSystemAdapter';
@@ -138,12 +139,28 @@ function main(): void {
 
     const snapshot = sessionState.getSnapshot();
     console.log(`Sharing active: ${snapshot.sharingActive}`);
-    console.log('Host control API endpoints are localhost-only: POST /api/host/start and POST /api/host/stop');
 
     // Advertise via mDNS/Bonjour so devices discover automatically
     if (config.mdnsEnabled) {
       republishMdns();
     }
+
+    // Automatically open Admin panel in browser
+    const openUrl = `http://localhost:${config.port}/admin`;
+    console.log(`Admin panel URL: ${openUrl}`);
+
+    const platform = process.platform;
+    let command = '';
+
+    if (platform === 'darwin') command = `open "${openUrl}"`;
+    else if (platform === 'win32') command = `start "" "${openUrl}"`;
+    else command = `xdg-open "${openUrl}"`;
+
+    exec(command, (error) => {
+      if (error) {
+        console.warn('Note: Browser could not be opened automatically.');
+      }
+    });
 
     const shutdown = (): void => {
       if (bonjour) {
