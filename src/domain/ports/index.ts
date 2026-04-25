@@ -67,13 +67,14 @@ export interface FileSystemPort {
   getContentType(filename: string): string;
 
   /**
-   * Save an uploaded file to the specified directory
+   * Save a file to the specified directory
    * @param targetDir - Resolved target directory where file will be saved
-   * @param filename - Name for the uploaded file
+   * @param filename - Name for the file
    * @param data - File data as Buffer
+   * @param overwrite - Whether to overwrite existing file (default: false, auto-renames if false)
    * @returns Result with the saved file path or error
    */
-  saveUploadedFile(targetDir: ResolvedTarget, filename: string, data: Buffer): Promise<Result<{ absPath: string; relPath: string }>>;
+  saveFile(targetDir: ResolvedTarget, filename: string, data: Buffer, overwrite?: boolean): Promise<Result<{ absPath: string; relPath: string }>>;
 
   /**
    * Create a directory under a resolved parent directory

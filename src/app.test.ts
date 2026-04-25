@@ -34,7 +34,7 @@ async function withTempRoot(run: (rootPath: string) => Promise<void>): Promise<v
 test('status includes host ip candidates and sharing state', async () => {
   await withTempRoot(async (rootPath) => {
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [
         {
@@ -70,7 +70,7 @@ test('list route blocks while host sharing is stopped and resumes after start', 
     await fsp.writeFile(path.join(rootPath, 'demo.txt'), 'hello');
 
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [
         {
@@ -116,7 +116,7 @@ test('host can update shared root at runtime and clients see new directory', asy
       await fsp.writeFile(path.join(rootB, 'only-in-b.txt'), 'beta');
 
       const config: AppConfig = {
-        host: '0.0.0.0',
+        host: '127.0.0.1',
         port: 8080,
         roots: [
           {
@@ -170,7 +170,7 @@ test('download endpoint supports HTTP range requests for resumable downloads', a
     await fsp.writeFile(filePath, 'abcdef');
 
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [
         {
@@ -209,7 +209,7 @@ test('upload API preserves existing file by auto-renaming duplicate filename', a
     await fsp.writeFile(path.join(rootPath, 'report.txt'), 'original-content');
 
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [
         {
@@ -250,7 +250,7 @@ test('list route supports sorting by name/size/date', async () => {
     await fsp.writeFile(path.join(rootPath, 'a-file.txt'), 'a');
 
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
       mdnsEnabled: false,
@@ -280,7 +280,7 @@ test('list route supports sorting by name/size/date', async () => {
 test('can create and delete directory via file browsing APIs', async () => {
   await withTempRoot(async (rootPath) => {
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
       mdnsEnabled: false,
@@ -295,6 +295,7 @@ test('can create and delete directory via file browsing APIs', async () => {
     const createDirectoryUseCase = new CreateDirectoryUseCase(fileSystem, sessionState);
     const deleteEntryUseCase = new DeleteEntryUseCase(fileSystem, sessionState);
     const { app } = createApp(config, sessionState, fileSystem, listFilesUseCase, downloadFileUseCase, downloadDirectoryUseCase, uploadFileUseCase, createDirectoryUseCase, deleteEntryUseCase);
+    sessionState.setDeleteEnabled(true);
 
     await request(app)
       .post('/api/fs/mkdir')
@@ -318,7 +319,7 @@ test('modify/delete toggles are enforced by APIs', async () => {
     await fsp.mkdir(path.join(rootPath, 'to-delete'));
 
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
       mdnsEnabled: false,
@@ -353,7 +354,7 @@ test('modify/delete toggles are enforced by APIs', async () => {
 test('transfer settings include read policy and persist updates', async () => {
   await withTempRoot(async (rootPath) => {
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
       mdnsEnabled: false,
@@ -388,7 +389,7 @@ test('read policy blocks list and download endpoints when disabled', async () =>
     await fsp.writeFile(path.join(rootPath, 'dir-a', 'inside.txt'), 'x');
 
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [{ id: '0', name: 'tmp', absPath: rootPath }],
       mdnsEnabled: false,
