@@ -174,13 +174,14 @@ export class FileSystemAdapter implements FileSystemPort {
   }
 
   /**
-   * Save uploaded file to target directory
-   * @param targetDir - Resolved target directory
+   * Save a file to target directory
+   * @param targetDir - Resolved target directory where file will be saved
    * @param filename - Name for the file
    * @param data - File data buffer
+   * @param overwrite - Whether to overwrite existing file
    * @returns Result with saved file info or error
    */
-  async saveUploadedFile(targetDir: ResolvedTarget, filename: string, data: Buffer): Promise<Result<{ absPath: string; relPath: string }>> {
+  async saveFile(targetDir: ResolvedTarget, filename: string, data: Buffer, overwrite: boolean = false): Promise<Result<{ absPath: string; relPath: string }>> {
     try {
       // Verify target is a directory
       const stat = await fsp.stat(targetDir.absPath);
@@ -197,6 +198,18 @@ export class FileSystemAdapter implements FileSystemPort {
       const root = this.roots.find((r) => r.id === targetDir.rootId);
       if (!root) {
         return err(new FileAccessError('Invalid root'));
+      }
+
+      if (overwrite) {
+        const absPath = path.join(targetDir.absPath, safeFilename);
+        if (!this.isInsideRoot(root.absPath, absPath)) {
+          return err(new FileAccessError('File path would escape root'));
+        }
+        await fsp.writeFile(absPath, data);
+        return ok({
+          absPath,
+          relPath: targetDir.relPath ? `${targetDir.relPath}/${safeFilename}` : safeFilename,
+        });
       }
 
       const ext = path.extname(safeFilename);

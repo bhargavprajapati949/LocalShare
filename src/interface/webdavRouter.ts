@@ -135,7 +135,8 @@ function buildHref(davBase: string, rootId: string, relPath: string): string {
 
 function parseDestinationHeader(dest: string, davBase: string): { rootId: string; relPath: string } | null {
   try {
-    const url = new URL(dest);
+    // Use a dummy base to handle relative URLs or URLs without a domain
+    const url = new URL(dest, 'http://localhost');
     const pathPart = decodeURIComponent(url.pathname);
     const prefix = davBase.startsWith('/') ? davBase : `/${davBase}`;
     if (!pathPart.startsWith(prefix)) return null;
@@ -330,7 +331,7 @@ export function createDavRouter(
       if (!parentTarget) return;
 
       const data = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || '');
-      const saveResult = await fileSystem.saveUploadedFile(parentTarget, path.basename(parsed.relPath), data);
+      const saveResult = await fileSystem.saveFile(parentTarget, path.basename(parsed.relPath), data, true);
       if (!saveResult.ok) { res.status(500).end(saveResult.error.message); return; }
 
       res.status(201).end();

@@ -27,6 +27,7 @@ export class UploadFileUseCase {
    * @param relPath - Directory path within root (empty string for root)
    * @param filename - Name for the uploaded file
    * @param fileData - File data as Buffer
+   * @param overwrite - Whether to overwrite existing file (default: false)
    * @returns Result with upload info or error
    */
   async execute(
@@ -34,6 +35,7 @@ export class UploadFileUseCase {
     relPath: string,
     filename: string,
     fileData: Buffer,
+    overwrite: boolean = false,
   ): Promise<Result<{ absPath: string; relPath: string; size: number }>> {
     // Validate sharing is active
     if (!this.session.isSharingActive()) {
@@ -65,7 +67,7 @@ export class UploadFileUseCase {
     }
 
     // Save the file
-    const saveResult = await this.fileSystem.saveUploadedFile(target, filename, fileData);
+    const saveResult = await this.fileSystem.saveFile(target, filename, fileData, overwrite);
     if (!saveResult.ok) {
       return saveResult;
     }

@@ -31,7 +31,7 @@ async function withDavApp(
   const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'lan-file-host-dav-test-'));
   try {
     const config: AppConfig = {
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 8080,
       roots: [{ id: '0', name: 'tmp', absPath: tempRoot }],
       mdnsEnabled: false,
@@ -50,6 +50,8 @@ async function withDavApp(
       new CreateDirectoryUseCase(fileSystem, sessionState),
       new DeleteEntryUseCase(fileSystem, sessionState),
     );
+    sessionState.setWebdavEnabled(true);
+    sessionState.setDeleteEnabled(true);
     await run(app, tempRoot);
   } finally {
     await fsp.rm(tempRoot, { recursive: true, force: true });
