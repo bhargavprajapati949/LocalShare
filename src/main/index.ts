@@ -1,16 +1,42 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } from 'electron';
 import path from 'node:path';
 import { FileServer } from '../server/server';
-import { loadConfig } from '../server/infrastructure/config';
+import { loadConfig, ShareRoot } from '../server/infrastructure/config';
 
+// Define settings schema
+interface AppSettings {
+  port: number;
+  roots: ShareRoot[];
+  autoLaunch: boolean;
+}
+
+let store: any = null;
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let fileServer: FileServer | null = null;
 let currentPort = 12345;
 
+/**
+ * Handle Auto-Launch state
+ */
+function updateAutoLaunch(enabled: boolean) {
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    path: app.getPath('exe'),
+  });
+  store.set('autoLaunch', enabled);
+}
+
 async function startServer(port: number): Promise<number> {
   const baseConfig = loadConfig();
-  const config = { ...baseConfig, port };
+  const storedRoots = store.get('roots');
+  
+  // Merge stored roots if available, otherwise use env/default
+  const config = { 
+    ...baseConfig, 
+    port,
+    roots: storedRoots.length > 0 ? storedRoots : baseConfig.roots 
+  };
   
   fileServer = new FileServer(config);
   
@@ -61,8 +87,8 @@ async function createWindow() {
     icon: path.join(__dirname, '../../renderer/favicon.svg')
   });
 
-  // Start server on default port 12345
-  currentPort = await startServer(12345);
+  // Start server on current port
+  currentPort = await startServer(currentPort);
   createTray(currentPort);
 
   const adminUrl = `http://localhost:${currentPort}/admin`;
@@ -73,7 +99,22 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+async function initApp() {
+  // Dynamically import electron-store (ESM)
+  const Store = (await import('electron-store')).default;
+  store = new Store<AppSettings>({
+    defaults: {
+      port: 12345,
+      roots: [],
+      autoLaunch: false,
+    }
+  });
+
+  currentPort = store.get('port');
+  await createWindow();
+}
+
+app.whenReady().then(initApp);
 
 app.on('window-all-closed', () => {
   // On macOS it is common for applications and their menu bar
@@ -101,7 +142,36 @@ ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory']
   });
-  return result.filePaths[0];
+  
+  if (result.filePaths[0]) {
+    const absPath = result.filePaths[0];
+    const newRoot: ShareRoot = {
+      id: '0',
+      name: path.basename(absPath) || absPath,
+      absPath
+    };
+    store.set('roots', [newRoot]); // Currently supporting single root for simplicity
+    return absPath;
+  }
+  return null;
+});
+
+ipcMain.handle('get-settings', () => {
+  return {
+    port: currentPort,
+    autoLaunch: store.get('autoLaunch'),
+    roots: store.get('roots')
+  };
+});
+
+ipcMain.handle('toggle-auto-launch', (_event, enabled: boolean) => {
+  updateAutoLaunch(enabled);
+  return store.get('autoLaunch');
+});
+
+ipcMain.handle('save-roots', (_event, roots: ShareRoot[]) => {
+  store.set('roots', roots);
+  return true;
 });
 
 ipcMain.handle('get-server-info', () => {

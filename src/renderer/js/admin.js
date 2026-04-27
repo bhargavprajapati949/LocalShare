@@ -61,6 +61,16 @@ const state={sharingActive:true,webdavUrls:[]};
         shareRootStatusEl.textContent="Directory successfully updated!";
         setTimeout(()=>{shareRootStatusEl.textContent="";},3000);
         await loadStatus();
+
+        if (window.electronAPI) {
+          const rStatus = await fetch(apiUrl("/api/status"));
+          if (rStatus.ok) {
+            const s = await rStatus.json();
+            if (s.roots) {
+              await window.electronAPI.saveRoots(s.roots);
+            }
+          }
+        }
       }
       async function pickSharedDirectory(){
         if (window.electronAPI) {
@@ -215,7 +225,31 @@ const state={sharingActive:true,webdavUrls:[]};
             copyBtn.type="button";
             copyBtn.textContent="Copy";
             copyBtn.addEventListener("click",async()=>{
-              try{await navigator.clipboard.writeText(url);copyBtn.textContent="Copied";setTimeout(()=>{copyBtn.textContent="Copy";},1200);}catch{copyBtn.textContent="Failed";setTimeout(()=>{copyBtn.textContent="Copy";},1200);}
+              const fallbackCopy = (text) => {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try { document.execCommand('copy'); } catch (err) {}
+                document.body.removeChild(textArea);
+              };
+
+              try {
+                if (navigator.clipboard && window.isSecureContext) {
+                  await navigator.clipboard.writeText(url);
+                } else {
+                  fallbackCopy(url);
+                }
+                copyBtn.textContent="Copied";
+                setTimeout(()=>{copyBtn.textContent="Copy";},1200);
+              } catch {
+                copyBtn.textContent="Failed";
+                setTimeout(()=>{copyBtn.textContent="Copy";},1200);
+              }
             });
             row.appendChild(link);
             row.appendChild(copyBtn);
@@ -265,4 +299,25 @@ const state={sharingActive:true,webdavUrls:[]};
       clearPinBtnEl.addEventListener("click",clearPinSettings);
       refreshStatusEl.addEventListener("click",async()=>{await loadStatus();await loadTransferSettings();await loadPinSettings();await loadDiscoveryHealth();});
       openClientUIEl.addEventListener("click",()=>window.location.href="/");
-      (async()=>{await loadStatus();await loadTransferSettings();await loadPinSettings();loadQr();await loadDomainName();await loadDiscoveryHealth();})();
+      (async()=>{
+        await loadStatus();
+        await loadTransferSettings();
+        await loadPinSettings();
+        loadQr();
+        await loadDomainName();
+        await loadDiscoveryHealth();
+
+        // Electron-specific initialization
+        if (window.electronAPI) {
+          const desktopSection = document.getElementById("desktopSettings");
+          const autoLaunchToggle = document.getElementById("autoLaunch");
+          
+          desktopSection.classList.remove("hidden");
+          const settings = await window.electronAPI.getSettings();
+          autoLaunchToggle.checked = settings.autoLaunch;
+
+          autoLaunchToggle.addEventListener("change", async () => {
+            await window.electronAPI.toggleAutoLaunch(autoLaunchToggle.checked);
+          });
+        }
+      })();

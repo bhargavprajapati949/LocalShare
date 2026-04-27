@@ -208,6 +208,9 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         state.sharingActive=Boolean(s.sharingActive);state.canControlHost=Boolean(s.canControlHost);
         state.requiresPin=Boolean(s.requiresPin);state.lanUrls=Array.isArray(s.lanUrls)?s.lanUrls:[];
         pinInputContainerEl.classList.toggle('hidden', !state.requiresPin);
+
+        const showBtn = document.getElementById("showConnectGuide");
+        if (showBtn) showBtn.style.display = s.webdavEnabled ? '' : 'none';
       }
       async function loadStatus(){
         const r=await fetch(apiUrl("/api/status"));if(!r.ok)throw new Error("Status error");
@@ -863,4 +866,111 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         else if(action==="cancel")cancelUpload(id);
         else if(action==="remove")removeUpload(id);
       });
-      (async()=>{setDownloadMode(state.downloadMode);renderDownloadPanel();renderUploadPanel();await loadStatus();const saved=storedPin();if(saved){state.pin=saved;pinInputEl.value=saved;}await loadDirectory();})();
+      function initConnectGuide() {
+        const modal = document.getElementById("connectGuideModal");
+        const showBtn = document.getElementById("showConnectGuide");
+        const closeBtn = document.getElementById("closeConnectGuide");
+        const urlInput = document.getElementById("connectUrl");
+        const copyBtn = document.getElementById("copyConnectUrl");
+        const tabs = document.querySelectorAll(".os-tab");
+        const contents = document.querySelectorAll(".os-content");
+
+        const updateUrl = () => {
+          const davUrl = new URL("/dav/0/", window.location.origin).toString();
+          const linuxUrl = davUrl.replace("http://", "dav://");
+          urlInput.value = davUrl;
+          document.getElementById("winCmd").textContent = `net use Z: "${davUrl}"`;
+          document.getElementById("macCmd").textContent = `osascript -e 'mount volume "${davUrl}"'`;
+          document.getElementById("linuxCmd").textContent = `gio mount "${linuxUrl}"`;
+        };
+
+        const showModal = () => {
+          updateUrl();
+          modal.classList.remove("hidden");
+          setTimeout(() => {
+            modal.classList.remove("opacity-0", "scale-95");
+            modal.classList.add("opacity-100", "scale-100");
+          }, 10);
+        };
+
+        const hideModal = () => {
+          modal.classList.add("opacity-0", "scale-95");
+          setTimeout(() => modal.classList.add("hidden"), 300);
+        };
+
+        const setOS = (os) => {
+          tabs.forEach(t => {
+            const isActive = t.dataset.os === os;
+            t.classList.toggle("bg-white", isActive);
+            t.classList.toggle("dark:bg-slate-700", isActive);
+            t.classList.toggle("shadow-sm", isActive);
+            t.classList.toggle("text-brand-600", isActive);
+            t.classList.toggle("dark:text-brand-400", isActive);
+          });
+          contents.forEach(c => c.classList.toggle("hidden", c.id !== `os-${os}`));
+        };
+
+        // Auto-detect OS
+        const platform = navigator.platform.toLowerCase();
+        if (platform.includes("win")) setOS("windows");
+        else if (platform.includes("mac")) setOS("macos");
+        else setOS("linux");
+
+        showBtn.addEventListener("click", showModal);
+        closeBtn.addEventListener("click", hideModal);
+        modal.addEventListener("click", (e) => { if (e.target === modal) hideModal(); });
+
+        tabs.forEach(t => t.addEventListener("click", () => setOS(t.dataset.os)));
+
+        const copyText = async (text, btn) => {
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(text);
+            } else {
+              // Fallback for non-secure contexts (HTTP)
+              const textArea = document.createElement("textarea");
+              textArea.value = text;
+              textArea.style.position = "fixed";
+              textArea.style.left = "-9999px";
+              textArea.style.top = "-9999px";
+              document.body.appendChild(textArea);
+              textArea.focus();
+              textArea.select();
+              try {
+                document.execCommand('copy');
+              } catch (err) {
+                console.error('Fallback copy failed', err);
+              }
+              document.body.removeChild(textArea);
+            }
+
+            const original = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.classList.add("text-emerald-500");
+            setTimeout(() => {
+              btn.textContent = original;
+              btn.classList.remove("text-emerald-500");
+            }, 2000);
+          } catch (err) { console.error("Copy failed", err); }
+        };
+
+        copyBtn.addEventListener("click", () => copyText(urlInput.value, copyBtn));
+        document.querySelectorAll("[data-copy]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const targetId = btn.dataset.copy;
+            const text = document.getElementById(targetId).textContent;
+            copyText(text, btn);
+          });
+        });
+      }
+
+      (async()=>{
+        setDownloadMode(state.downloadMode);
+        renderDownloadPanel();
+        renderUploadPanel();
+        await loadStatus();
+        initConnectGuide();
+        const saved=storedPin();
+        if(saved){state.pin=saved;pinInputEl.value=saved;}
+        await loadDirectory();
+      })();

@@ -127,14 +127,20 @@
         </h1>
         <p class="text-slate-500 dark:text-slate-400 mt-2 text-sm">Seamless file transfer across your network.</p>
       </div>
-      <button id="refresh" class="btn-secondary whitespace-nowrap self-end sm:self-center">
-        <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-          </path>
-        </svg>
-        Refresh
-      </button>
+      <div class="flex gap-2 self-end sm:self-center">
+        <button id="showConnectGuide" class="btn-secondary whitespace-nowrap" style="display: none">
+          <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Connect as Drive
+        </button>
+        <button id="refresh" class="btn-secondary whitespace-nowrap">
+          <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          Refresh
+        </button>
+      </div>
     </header>
 
     <div class="flex flex-col sm:flex-row gap-6 mb-8 items-end">
@@ -235,6 +241,118 @@
     <a href="https://bhargavprajapati949.github.io/LocalShare/#feedback" target="_blank"
       class="text-slate-400 hover:text-brand-500 transition-colors text-sm font-medium">Feedback & Bug Reports</a>
   </footer>
+
+  <div id="connectGuideModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+    <div class="glass-card rounded-3xl p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto transform scale-95 transition-transform duration-300">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold flex items-center gap-3">
+          <svg class="w-7 h-7 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Connect as Local Drive
+        </h2>
+        <button id="closeConnectGuide" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-8">
+        <button data-os="windows" class="os-tab flex-1 py-2 rounded-lg text-sm font-medium transition-all">Windows</button>
+        <button data-os="macos" class="os-tab flex-1 py-2 rounded-lg text-sm font-medium transition-all">macOS</button>
+        <button data-os="linux" class="os-tab flex-1 py-2 rounded-lg text-sm font-medium transition-all">Linux</button>
+      </div>
+
+      <div class="space-y-8">
+        <!-- URL Section -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">WebDAV Connection URL</label>
+          <div class="flex gap-2">
+            <input id="connectUrl" readonly type="text" class="input-base font-mono text-sm bg-slate-50 dark:bg-slate-900/50" />
+            <button id="copyConnectUrl" class="btn-secondary px-4 whitespace-nowrap">Copy</button>
+          </div>
+        </div>
+
+        <!-- OS Content: Windows -->
+        <div id="os-windows" class="os-content space-y-6 hidden">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px]">1</span>
+              Quick Command (Tech Method)
+            </h3>
+            <div class="relative group">
+              <pre class="bg-slate-900 text-brand-400 p-4 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800"><code id="winCmd">net use Z: "URL"</code></pre>
+              <button data-copy="winCmd" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 btn-secondary btn-compact transition-opacity">Copy</button>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-2">Paste this into Command Prompt or PowerShell to mount as drive Z:.</p>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px]">2</span>
+              Step-by-Step (GUI Method)
+            </h3>
+            <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2 ml-7 list-disc">
+              <li>Open <b>File Explorer</b> and click <b>"This PC"</b>.</li>
+              <li>In the top menu, click <b>"Map network drive"</b>.</li>
+              <li>Paste the URL above into the <b>"Folder"</b> field.</li>
+              <li>Click <b>Finish</b>. If prompted, enter any username and your PIN.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- OS Content: macOS -->
+        <div id="os-macos" class="os-content space-y-6 hidden">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px]">1</span>
+              Quick Command (Tech Method)
+            </h3>
+            <div class="relative group">
+              <pre class="bg-slate-900 text-brand-400 p-4 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800"><code id="macCmd">open "URL"</code></pre>
+              <button data-copy="macCmd" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 btn-secondary btn-compact transition-opacity">Copy</button>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-2">Paste this into Terminal to mount the drive instantly.</p>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px]">2</span>
+              Step-by-Step (GUI Method)
+            </h3>
+            <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2 ml-7 list-disc">
+              <li>Open <b>Finder</b> and press <kbd class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-sans text-xs">Cmd + K</kbd>.</li>
+              <li>Paste the URL above into the <b>"Server Address"</b> field.</li>
+              <li>Click <b>Connect</b>. Select "Registered User" and enter your PIN.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- OS Content: Linux -->
+        <div id="os-linux" class="os-content space-y-6 hidden">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px]">1</span>
+              Quick Command (Tech Method)
+            </h3>
+            <div class="relative group">
+              <pre class="bg-slate-900 text-brand-400 p-4 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800"><code id="linuxCmd">gio mount "dav://URL"</code></pre>
+              <button data-copy="linuxCmd" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 btn-secondary btn-compact transition-opacity">Copy</button>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-2">Paste this into your terminal (requires gvfs/gio).</p>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px]">2</span>
+              Step-by-Step (GUI Method)
+            </h3>
+            <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2 ml-7 list-disc">
+              <li>Open <b>Files (Nautilus/Dolphin)</b> and click <b>"Other Locations"</b> or <b>"Network"</b>.</li>
+              <li>Paste the URL above but replace <code class="text-brand-600">http://</code> with <code class="text-brand-600">dav://</code>.</li>
+              <li>Click <b>Connect</b> and enter your PIN if prompted.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="/js/main.js"></script>
 </body>
