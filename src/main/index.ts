@@ -64,7 +64,10 @@ function buildStatusDto() {
     modifyEnabled: sessionState.isModifyEnabled(),
     deleteEnabled: sessionState.isDeleteEnabled(),
     webdavEnabled: sessionState.isWebdavEnabled(),
-    webdavUrls: lanAddresses.map((ip) => `http://${ip}:${config.port}/dav/0/`),
+    webdavUrls: [
+      ...lanAddresses.map((ip) => `http://${ip}:${config.port}/dav/0/`),
+      `http://${domainName}:${config.port}/dav/0/`
+    ],
   };
 }
 
@@ -104,8 +107,8 @@ async function startServer(port: number): Promise<number> {
 
 function createTray(port: number) {
   const isMac = process.platform === 'darwin';
-  const iconPath = isMac 
-    ? path.join(__dirname, '../icons/png/32x32.png') 
+  const iconPath = isMac
+    ? path.join(__dirname, '../icons/png/32x32.png')
     : path.join(__dirname, '../icons/png/16x16.png');
   const icon = nativeImage.createFromPath(iconPath);
 
@@ -128,7 +131,7 @@ async function createWindow() {
   const iconPath = isMac
     ? path.join(__dirname, '../icons/mac/icon.icns')
     : path.join(__dirname, '../icons/png/512x512.png');
-  
+
   const icon = nativeImage.createFromPath(iconPath);
 
   mainWindow = new BrowserWindow({
@@ -177,7 +180,7 @@ app.whenReady().then(async () => {
     const icon = nativeImage.createFromPath(iconPath);
     if (app.dock && icon) app.dock.setIcon(icon);
   }
-  
+
   await initApp();
 });
 

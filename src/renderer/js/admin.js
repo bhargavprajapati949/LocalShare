@@ -28,6 +28,8 @@ createApp({
     const uploadMaxSizeMb = ref(51200);
     const healthWarnings = ref([]);
     const toasts = ref([]);
+    const activeWebdavUrl = ref('');
+    const activeWebdavOs = ref('windows');
     const desktopSettings = reactive({
       autoLaunch: false
     });
@@ -96,7 +98,28 @@ createApp({
       permissions.createEnabled = !!(s.createEnabled || s.modifyEnabled);
       permissions.deleteEnabled = !!s.deleteEnabled;
       permissions.webdavEnabled = !!s.webdavEnabled;
+
+      if (!activeWebdavUrl.value && s.webdavUrls?.length) {
+        activeWebdavUrl.value = s.webdavUrls[0];
+      }
     };
+
+    const detectOs = () => {
+      const platform = window.navigator.platform.toLowerCase();
+      if (platform.includes('mac')) activeWebdavOs.value = 'macos';
+      else if (platform.includes('linux')) activeWebdavOs.value = 'linux';
+      else activeWebdavOs.value = 'windows';
+    };
+
+      const copyWebdavCommand = (os, event) => {
+        let cmd = '';
+        const url = activeWebdavUrl.value;
+        if (os === 'windows') cmd = `net use Z: "${url}"`;
+        else if (os === 'macos') cmd = `osascript -e 'mount volume "${url}"'`;
+        else if (os === 'linux') cmd = `gio mount "${url.replace('http://', 'dav://')}"`;
+        
+        copyText(cmd, event);
+      };
 
     const toggleServer = async () => {
       if (!window.electronAPI) return;
@@ -277,6 +300,10 @@ createApp({
           updateLocalStatus(newStatus);
         });
       }
+
+      await refreshStatus();
+      detectOs();
+      setInterval(refreshStatus, 3000);
     });
 
     onUnmounted(() => {
@@ -286,7 +313,6 @@ createApp({
     return {
       status,
       currentTab,
-      tabTitle,
       qrCode,
       shareRootPath,
       pinValue,
@@ -296,9 +322,13 @@ createApp({
       healthWarnings,
       toasts,
       desktopSettings,
+      tabTitle,
       permissions,
       filteredPermissions,
       electron,
+      activeWebdavUrl,
+      activeWebdavOs,
+      copyWebdavCommand,
       refreshStatus,
       toggleServer,
       togglePermission,

@@ -51,6 +51,9 @@ Status values:
 - WebDAV mode - done
 - Extensibility and automation - todo
 
+### UI/UX Enhancements
+- Add dark mode - todo
+
 ## Bugs
 - Android mDNS (.local) resolution unreliable on same LAN/hotspot - todo
 - On windows, user is not able to share whole drive (like D:\). It only allows to share folders. - todo
