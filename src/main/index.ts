@@ -44,7 +44,7 @@ function buildStatusDto() {
 
   return {
     appName: 'LocalShare',
-    version: '1.0.6',
+    version: app.getVersion(),
     host: config.host,
     port: config.port,
     requiresPin: Boolean(effectivePin),

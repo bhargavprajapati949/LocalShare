@@ -24,8 +24,8 @@
   <style type="text/tailwindcss">
     @layer utilities {
       .glass-card { @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/20 dark:border-slate-800 shadow-xl; }
-      .sidebar-item { @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-brand-600 dark:hover:text-brand-400 font-medium; }
-      .sidebar-item.active { @apply bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-900/30; }
+      .sidebar-item { @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-brand-600 dark:hover:text-brand-400 font-medium border border-transparent; }
+      .sidebar-item.active { @apply bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 border-brand-100 dark:border-brand-900/30; }
       .input-base { @apply w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all; }
       .btn-base { @apply px-4 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center; }
       .btn-primary { @apply btn-base bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-brand-500/20 border-t border-white/20; }
@@ -58,6 +58,24 @@
     [v-cloak] { display: none; }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    // Immediate theme check to prevent FOUC
+    const savedTheme = localStorage.getItem('theme');
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      if (!localStorage.getItem('theme')) {
+        if (e.matches) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+      }
+    });
+  </script>
 </head>
 
 <body class="flex overflow-hidden">
@@ -112,6 +130,11 @@
           <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ tabTitle }}</span>
         </div>
         <div class="flex items-center gap-4">
+          <!-- Theme Toggle -->
+          <button @click="toggleTheme" class="p-2 text-slate-500 hover:text-brand-500 transition-colors" title="Toggle Theme">
+            <svg v-if="!isDark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+          </button>
           <button @click="refreshStatus" class="p-2 text-slate-500 hover:text-brand-500 transition-colors" title="Refresh">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           </button>
@@ -244,7 +267,7 @@
                   </div>
                 </div>
                 <div class="flex gap-2">
-                  <input type="text" v-model="shareRootPath" class="input-base text-sm" placeholder="/absolute/path/..." />
+                  <input id="input-shareRootPath" type="text" v-model="shareRootPath" class="input-base text-sm" placeholder="/absolute/path/..." />
                   <button @click="pickDirectory" class="btn-secondary whitespace-nowrap px-6 h-11 text-xs">Choose</button>
                   <button @click="applyDirectory" class="btn-primary px-8 h-11 text-xs">Apply</button>
                 </div>
@@ -354,7 +377,7 @@
                 <div class="flex items-end gap-4">
                   <div class="flex-1">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Max Upload File Size (MB)</label>
-                    <input type="number" v-model="uploadMaxSizeMb" class="input-base text-sm h-11" />
+                    <input id="input-uploadMaxSizeMb" type="number" v-model="uploadMaxSizeMb" class="input-base text-sm h-11" />
                   </div>
                   <!-- FIXED: Save Limits Button Visibility -->
                   <button @click="saveTransferSettings(false)" class="btn-primary px-8 h-11 text-xs">Save Limits</button>
@@ -412,7 +435,7 @@
                   <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">Server Port</h3>
                   <p class="text-[10px] text-slate-500 mb-6 uppercase tracking-tight">The listening port for all connections</p>
                   <div class="flex gap-2">
-                    <input type="number" v-model="serverPort" class="input-base font-mono text-sm h-11" placeholder="12345" min="1024" max="65535" />
+                    <input id="input-serverPort" type="number" v-model="serverPort" class="input-base font-mono text-sm h-11" placeholder="12345" min="1024" max="65535" />
                     <button @click="savePort" class="btn-primary px-8 h-11 text-xs">Change Port</button>
                   </div>
                   <p class="mt-3 text-[10px] text-slate-400">Note: Changing the port will briefly restart the server and may disconnect active clients.</p>
@@ -430,7 +453,7 @@
                     </div>
                   </div>
                   <div class="flex gap-2 mb-6">
-                    <input type="text" v-model="domainName" class="input-base font-mono text-sm h-11" placeholder="my-server.local" />
+                    <input id="input-domainName" type="text" v-model="domainName" class="input-base font-mono text-sm h-11" placeholder="my-server.local" />
                     <button @click="saveDomain" class="btn-primary px-8 h-11 text-xs">Update Domain</button>
                   </div>
                   <div class="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
@@ -473,7 +496,7 @@
                   <div class="space-y-2">
                     <div class="flex justify-between text-xs py-2">
                       <span class="text-slate-500">Version</span>
-                      <span class="font-bold text-brand-600 dark:text-brand-400">1.0.6 (Stable)</span>
+                      <span class="font-bold text-brand-600 dark:text-brand-400">{{ status.version }} (Stable)</span>
                     </div>
                   </div>
                 </div>

@@ -30,6 +30,7 @@ createApp({
     const toasts = ref([]);
     const activeWebdavUrl = ref('');
     const activeWebdavOs = ref('windows');
+    const isDark = ref(document.documentElement.classList.contains('dark'));
     const desktopSettings = reactive({
       autoLaunch: false
     });
@@ -88,10 +89,14 @@ createApp({
 
     const updateLocalStatus = (s) => {
       Object.assign(status, s);
-      shareRootPath.value = s.roots?.[0]?.absPath || '';
-      domainName.value = s.domainName || '';
-      serverPort.value = s.port || 12345;
-      uploadMaxSizeMb.value = s.uploadMaxSizeMb || 51200;
+      
+      // Prevent overwriting inputs if user is currently typing (focused)
+      const activeId = document.activeElement?.id || '';
+      
+      if (activeId !== 'input-shareRootPath') shareRootPath.value = s.roots?.[0]?.absPath || '';
+      if (activeId !== 'input-domainName') domainName.value = s.domainName || '';
+      if (activeId !== 'input-serverPort') serverPort.value = s.port || 12345;
+      if (activeId !== 'input-uploadMaxSizeMb') uploadMaxSizeMb.value = s.uploadMaxSizeMb || 51200;
       
       permissions.readEnabled = !!s.readEnabled;
       permissions.uploadEnabled = !!s.uploadEnabled;
@@ -109,6 +114,17 @@ createApp({
       if (platform.includes('mac')) activeWebdavOs.value = 'macos';
       else if (platform.includes('linux')) activeWebdavOs.value = 'linux';
       else activeWebdavOs.value = 'windows';
+    };
+
+    const toggleTheme = () => {
+      isDark.value = !isDark.value;
+      if (isDark.value) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
     };
 
       const copyWebdavCommand = (os, event) => {
@@ -328,7 +344,9 @@ createApp({
       electron,
       activeWebdavUrl,
       activeWebdavOs,
+      isDark,
       copyWebdavCommand,
+      toggleTheme,
       refreshStatus,
       toggleServer,
       togglePermission,

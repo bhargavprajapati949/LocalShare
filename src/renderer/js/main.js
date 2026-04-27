@@ -964,12 +964,38 @@ const state={root:"",path:"",pin:"",roots:[],sharingActive:true,canControlHost:f
         });
       }
 
+      function initTheme() {
+        const toggleBtn = document.getElementById("toggleTheme");
+        const sunIcon = document.getElementById("themeSun");
+        const moonIcon = document.getElementById("themeMoon");
+
+        const updateIcons = () => {
+          const isDark = document.documentElement.classList.contains("dark");
+          if (isDark) {
+            sunIcon.classList.remove("hidden");
+            moonIcon.classList.add("hidden");
+          } else {
+            sunIcon.classList.add("hidden");
+            moonIcon.classList.remove("hidden");
+          }
+        };
+
+        toggleBtn.addEventListener("click", () => {
+          const isDark = document.documentElement.classList.toggle("dark");
+          localStorage.setItem("theme", isDark ? "dark" : "light");
+          updateIcons();
+        });
+
+        updateIcons();
+      }
+
       (async()=>{
         setDownloadMode(state.downloadMode);
         renderDownloadPanel();
         renderUploadPanel();
         await loadStatus();
         initConnectGuide();
+        initTheme();
         const saved=storedPin();
         if(saved){state.pin=saved;pinInputEl.value=saved;}
         await loadDirectory();

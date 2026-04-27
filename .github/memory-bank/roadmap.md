@@ -47,12 +47,10 @@ Status values:
 - Logs and session control - todo
 
 ### Power User and Extensibility
-- CLI mode - todo
 - WebDAV mode - done
-- Extensibility and automation - todo
 
 ### UI/UX Enhancements
-- Add dark mode - todo
+- Add dark mode - done
 
 ## Bugs
 - Android mDNS (.local) resolution unreliable on same LAN/hotspot - todo
