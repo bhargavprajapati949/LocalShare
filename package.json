@@ -16,7 +16,8 @@
     "test": "node --test --import tsx src/server/*.test.ts",
     "test:coverage": "node --test --experimental-test-coverage --import tsx src/server/*.test.ts",
     "electron:dev": "npm run build && electron .",
-    "electron:build": "npm run build && electron-builder -mwl"
+    "electron:build": "npm run build && electron-builder",
+    "electron:build:all": "npm run build && electron-builder -mwl"
   },
   "keywords": [
     "file-sharing",
