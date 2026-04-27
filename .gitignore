@@ -1,6 +1,7 @@
 node_modules/
 dist/
 release/
+release-electron/
 .env
 .DS_Store
 write_html.js

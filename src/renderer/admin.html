@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LocalShare</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="/js/tailwind.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a', 950: '#172554', },
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], },
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .glass-card { @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/20 dark:border-slate-800 shadow-xl; }
+      .sidebar-item { @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-brand-600 dark:hover:text-brand-400 font-medium; }
+      .sidebar-item.active { @apply bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-900/30; }
+      .input-base { @apply w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all; }
+      .btn-base { @apply px-4 py-2.5 rounded-xl font-medium transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center; }
+      .btn-primary { @apply btn-base bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-brand-500/20 border-t border-white/20; }
+      .btn-secondary { @apply btn-base bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700; }
+      .btn-danger { @apply btn-base bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-red-500/20 border-t border-white/20; }
+      .section-title { @apply text-xl font-bold text-slate-900 dark:text-white mb-1; }
+      .section-desc { @apply text-sm text-slate-500 dark:text-slate-400 mb-8; }
+      .card { @apply bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm; }
+    }
+    
+    body {
+      @apply bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased h-screen overflow-hidden;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-thumb { background: #334155; }
+
+    .switch { @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none; }
+    .switch-on { @apply bg-brand-500; }
+    .switch-off { @apply bg-slate-300 dark:bg-slate-700; }
+    .switch-dot { @apply inline-block h-4 w-4 transform rounded-full bg-white transition-transform; }
+    .translate-x-6 { transform: translateX(1.5rem); }
+    .translate-x-1 { transform: translateX(0.25rem); }
+
+    .toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+    .toast-enter-from, .toast-leave-to { transform: translateY(100%); opacity: 0; }
+
+    [v-cloak] { display: none; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="flex overflow-hidden">
+  <div id="app" class="flex w-full h-screen" v-cloak>
+    <!-- Sidebar -->
+    <aside class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl flex flex-col shrink-0">
+      <div class="p-6 border-b border-slate-200 dark:border-slate-800 mb-4">
+        <div class="flex items-center gap-3">
+          <img src="/favicon.svg" alt="Logo" class="w-8 h-8 rounded-lg shadow-md" />
+          <div>
+            <h1 class="font-bold text-slate-900 dark:text-white leading-tight text-sm">LocalShare</h1>
+            <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Local Sharing Console</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="flex-1 px-3 space-y-1 overflow-y-auto">
+        <div @click="currentTab = 'overview'" :class="['sidebar-item', currentTab === 'overview' ? 'active' : '']">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+          Dashboard
+        </div>
+        <!-- MERGED Sharing Control (Library + Transfers + WebDAV) -->
+        <div @click="currentTab = 'sharing'" :class="['sidebar-item', currentTab === 'sharing' ? 'active' : '']">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+          Sharing Control
+        </div>
+        <div @click="currentTab = 'security'" :class="['sidebar-item', currentTab === 'security' ? 'active' : '']">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+          Security
+        </div>
+        <div @click="currentTab = 'network'" :class="['sidebar-item', currentTab === 'network' ? 'active' : '']">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+          Connectivity
+        </div>
+        <div @click="currentTab = 'system'" :class="['sidebar-item', currentTab === 'system' ? 'active' : '']">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          System
+        </div>
+      </nav>
+
+      <div class="p-4 border-t border-slate-200 dark:border-slate-800">
+        <button @click="openClientUI" class="btn-secondary w-full text-xs text-brand-600 dark:text-brand-400 font-bold">
+          Open Client UI
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950">
+      <header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-8 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ tabTitle }}</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <button @click="refreshStatus" class="p-2 text-slate-500 hover:text-brand-500 transition-colors" title="Refresh">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          </button>
+          <button @click="toggleServer" :class="['btn-base px-6 text-xs h-10', status.sharingActive ? 'btn-danger' : 'btn-primary']">
+            {{ status.sharingActive ? 'Stop Sharing' : 'Start Sharing' }}
+          </button>
+        </div>
+      </header>
+
+      <div class="flex-1 overflow-y-auto p-8">
+        <transition name="fade" mode="out-in">
+          <div :key="currentTab" class="max-w-4xl mx-auto">
+            
+            <!-- Tab: Dashboard -->
+            <div v-if="currentTab === 'overview'" class="space-y-6">
+              <div class="section-header">
+                <h2 class="section-title">Dashboard</h2>
+                <p class="section-desc">At-a-glance status of your local file server.</p>
+              </div>
+
+              <!-- Top Row: Server State & Badges -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Main Status -->
+                <div class="card flex items-center gap-4 md:col-span-1">
+                  <div :class="['w-12 h-12 rounded-xl flex items-center justify-center shadow-lg', status.sharingActive ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-slate-400 shadow-slate-400/20']">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.828a5 5 0 117.07 0m-4.242-4.242a1 1 0 111.414 0" /></svg>
+                  </div>
+                  <div>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Server</div>
+                    <div class="text-lg font-black" :class="status.sharingActive ? 'text-emerald-500' : 'text-slate-500'">
+                      {{ status.sharingActive ? 'RUNNING' : 'STOPPED' }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Security Badge -->
+                <div @click="currentTab = 'security'" class="card flex items-center gap-4 cursor-pointer hover:border-brand-300 transition-colors">
+                  <div :class="['w-12 h-12 rounded-xl flex items-center justify-center shadow-lg', status.requiresPin ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-amber-500 shadow-amber-500/20']">
+                    <svg v-if="status.requiresPin" class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" /></svg>
+                    <svg v-else class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 016 0v1a1 1 0 102 0V7a5 5 0 00-5-5z" /></svg>
+                  </div>
+                  <div>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Security</div>
+                    <div class="text-sm font-bold" :class="status.requiresPin ? 'text-emerald-500' : 'text-amber-500'">
+                      {{ status.requiresPin ? 'PROTECTED' : 'OPEN ACCESS' }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- WebDAV Badge -->
+                <div @click="currentTab = 'sharing'" class="card flex items-center gap-4 cursor-pointer hover:border-brand-300 transition-colors">
+                  <div :class="['w-12 h-12 rounded-xl flex items-center justify-center shadow-lg', status.webdavEnabled ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-slate-400 shadow-slate-400/20']">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                  </div>
+                  <div>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">WebDAV</div>
+                    <div class="text-sm font-bold" :class="status.webdavEnabled ? 'text-emerald-500' : 'text-slate-500'">
+                      {{ status.webdavEnabled ? 'ACTIVE' : 'INACTIVE' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Shared Directory Info -->
+              <div class="card p-0 overflow-hidden flex flex-col md:flex-row border-brand-100 dark:border-brand-900/30">
+                <div class="p-6 flex-1 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800">
+                  <div class="text-[10px] font-bold text-brand-500 uppercase tracking-widest mb-2">Currently Sharing</div>
+                  <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 shrink-0">
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="font-bold text-slate-900 dark:text-white truncate text-lg">{{ status.roots[0]?.name || 'Nothing Selected' }}</div>
+                      <div class="text-[10px] text-slate-500 font-mono truncate mt-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">{{ status.roots[0]?.absPath || '--' }}</div>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <button @click="currentTab = 'sharing'" class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-widest hover:underline flex items-center gap-1">
+                      Manage Sharing <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="p-6 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col items-center justify-center gap-2 min-w-[180px]">
+                   <div class="w-32 h-32 bg-white rounded-2xl shadow-xl shadow-brand-500/10 flex items-center justify-center p-2 border-2 border-brand-500/20">
+                     <img v-if="qrCode" :src="qrCode" class="w-full h-full rounded" />
+                     <div v-else class="text-[10px] text-slate-400 font-bold uppercase text-center">QR Code<br>Offline</div>
+                   </div>
+                   <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center mt-1">Scan to Connect</div>
+                </div>
+              </div>
+
+              <!-- Quick Access Links -->
+              <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400">Network Access Points</h3>
+                </div>
+                <div class="space-y-2">
+                  <div v-for="url in status.lanUrls" :key="url" class="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50">
+                    <span class="font-mono text-xs font-semibold tracking-tight">{{ url }}</span>
+                    <button @click="copyText(url, $event)" class="text-[10px] font-bold text-brand-500 hover:text-brand-600 uppercase tracking-widest px-3 py-1 border border-slate-100 dark:border-slate-700 rounded-lg">Copy</button>
+                  </div>
+                  <div v-if="status.domainName" class="flex items-center justify-between p-3 rounded-xl bg-brand-50/30 dark:bg-brand-900/10 border border-brand-100 dark:border-brand-900/20">
+                    <span class="font-mono text-xs font-bold tracking-tight text-brand-600 dark:text-brand-400">http://{{ status.domainName }}:{{ status.port }}</span>
+                    <button @click="copyText(`http://${status.domainName}:${status.port}`, $event)" class="text-[10px] font-bold text-brand-500 hover:text-brand-600 uppercase tracking-widest px-3 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: Sharing Control (MERGED) -->
+            <div v-if="currentTab === 'sharing'" class="space-y-6">
+              <div class="section-header">
+                <h2 class="section-title">Sharing Control</h2>
+                <p class="section-desc">Manage library paths, client permissions, and drive mounting.</p>
+              </div>
+
+              <!-- 1. Shared Folder (Library) -->
+              <div class="card space-y-6">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400">Library Root</h3>
+                </div>
+                <div class="p-6 rounded-2xl bg-brand-50/50 dark:bg-brand-900/10 border border-brand-100/50 dark:border-brand-900/20 flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-brand-500">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Shared Folder</div>
+                    <div class="font-bold text-slate-900 dark:text-white truncate">{{ status.roots[0]?.name || 'No folder selected' }}</div>
+                    <div class="text-[10px] text-slate-500 font-mono truncate mt-0.5">{{ status.roots[0]?.absPath || '--' }}</div>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <input type="text" v-model="shareRootPath" class="input-base text-sm" placeholder="/absolute/path/..." />
+                  <button @click="pickDirectory" class="btn-secondary whitespace-nowrap px-6 h-11 text-xs">Choose</button>
+                  <button @click="applyDirectory" class="btn-primary px-8 h-11 text-xs">Apply</button>
+                </div>
+              </div>
+
+              <!-- 2. Network Permissions (Transfers) -->
+              <div class="card space-y-4">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Access Permissions</h3>
+                <div v-for="(val, key) in filteredPermissions" :key="key" class="flex items-center justify-between p-2">
+                  <div>
+                    <div class="text-sm font-bold text-slate-900 dark:text-white">{{ formatLabel(key) }}</div>
+                    <div class="text-[10px] text-slate-500">{{ getPermissionDesc(key) }}</div>
+                  </div>
+                  <button @click="togglePermission(key)" :class="['switch', permissions[key] ? 'switch-on' : 'switch-off']">
+                    <span :class="['switch-dot', permissions[key] ? 'translate-x-6' : 'translate-x-1']"></span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 3. WebDAV Drive Support (Moved Here) -->
+              <div class="card">
+                <div class="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">WebDAV Drive Support</h3>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-tight">Mount library as a local network drive</p>
+                  </div>
+                  <button @click="togglePermission('webdavEnabled')" :class="['switch', permissions.webdavEnabled ? 'switch-on' : 'switch-off']">
+                    <span :class="['switch-dot', permissions.webdavEnabled ? 'translate-x-6' : 'translate-x-1']"></span>
+                  </button>
+                </div>
+                <div v-if="permissions.webdavEnabled && status.webdavUrls && status.webdavUrls.length" class="space-y-3">
+                  <div v-for="url in status.webdavUrls" :key="url" class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4">
+                    <code class="text-brand-400 text-[10px] font-mono break-all">{{ url }}</code>
+                    <button @click="copyText(url, $event)" class="text-[9px] font-bold text-slate-400 hover:text-white uppercase tracking-widest px-2 py-1 border border-slate-800 rounded">Copy URL</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4. Storage Constraints -->
+              <div class="card">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Storage Protection</h3>
+                <div class="flex items-end gap-4">
+                  <div class="flex-1">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Max Upload File Size (MB)</label>
+                    <input type="number" v-model="uploadMaxSizeMb" class="input-base text-sm h-11" />
+                  </div>
+                  <!-- FIXED: Save Limits Button Visibility -->
+                  <button @click="saveTransferSettings(false)" class="btn-primary px-8 h-11 text-xs">Save Limits</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: Security -->
+            <div v-if="currentTab === 'security'" class="space-y-6">
+              <div class="section-header">
+                <h2 class="section-title">Security</h2>
+                <p class="section-desc">Manage authentication and protect your network visibility.</p>
+              </div>
+
+              <div class="card">
+                <div class="flex items-center gap-4 mb-8 p-6 rounded-2xl border-2" :class="status.requiresPin ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30' : 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30'">
+                  <div :class="['w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all', status.requiresPin ? 'text-emerald-600 bg-white' : 'text-amber-600 bg-white']">
+                    <svg v-if="status.requiresPin" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" /></svg>
+                    <svg v-else class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 016 0v1a1 1 0 102 0V7a5 5 0 00-5-5z" /></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-black tracking-widest uppercase" :class="status.requiresPin ? 'text-emerald-900 dark:text-emerald-400' : 'text-amber-900 dark:text-amber-400'">
+                      {{ status.requiresPin ? 'AUTHENTICATION ACTIVE' : 'UNPROTECTED NETWORK' }}
+                    </div>
+                    <div class="text-[10px] mt-0.5 leading-tight" :class="status.requiresPin ? 'text-emerald-700 dark:text-emerald-500' : 'text-amber-700 dark:text-amber-500'">
+                      {{ status.requiresPin ? 'Your library is safely locked. Clients must provide the correct PIN to connect.' : 'Warning: Anyone on your local network can browse and download files without a PIN.' }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="space-y-6">
+                  <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Update Access PIN (4-16 digits)</label>
+                    <div class="flex gap-2">
+                      <input type="password" v-model="pinValue" class="input-base tracking-widest font-mono text-sm h-12" placeholder="••••" maxlength="16" />
+                      <!-- FIXED: Dynamic Button Text -->
+                      <button @click="savePin" class="btn-primary px-8 whitespace-nowrap text-xs h-12">{{ status.requiresPin ? 'Change PIN' : 'Set PIN' }}</button>
+                      <button v-if="status.requiresPin" @click="clearPin" class="btn-danger px-8 whitespace-nowrap text-xs h-12">Disable Access Control</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: Connectivity -->
+            <div v-if="currentTab === 'network'" class="space-y-6">
+              <div class="section-header">
+                <h2 class="section-title">Connectivity</h2>
+                <p class="section-desc">Network identification and port configuration.</p>
+              </div>
+
+              <div class="space-y-6">
+                <!-- Port Configuration -->
+                <div class="card">
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">Server Port</h3>
+                  <p class="text-[10px] text-slate-500 mb-6 uppercase tracking-tight">The listening port for all connections</p>
+                  <div class="flex gap-2">
+                    <input type="number" v-model="serverPort" class="input-base font-mono text-sm h-11" placeholder="12345" min="1024" max="65535" />
+                    <button @click="savePort" class="btn-primary px-8 h-11 text-xs">Change Port</button>
+                  </div>
+                  <p class="mt-3 text-[10px] text-slate-400">Note: Changing the port will briefly restart the server and may disconnect active clients.</p>
+                </div>
+
+                <!-- Identity & Health Merged -->
+                <div class="card">
+                   <div class="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 class="text-sm font-bold text-slate-900 dark:text-white">Identity & Health</h3>
+                      <p class="text-[10px] text-slate-500 uppercase tracking-tight">mDNS hostname and discovery verification</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                    </div>
+                  </div>
+                  <div class="flex gap-2 mb-6">
+                    <input type="text" v-model="domainName" class="input-base font-mono text-sm h-11" placeholder="my-server.local" />
+                    <button @click="saveDomain" class="btn-primary px-8 h-11 text-xs">Update Domain</button>
+                  </div>
+                  <div class="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diagnostics</span>
+                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    </div>
+                    <div v-if="healthWarnings && healthWarnings.length" class="space-y-2">
+                      <div v-for="w in healthWarnings" :key="w" class="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 text-amber-800 dark:text-amber-500 text-[10px] leading-relaxed">
+                        {{ w }}
+                      </div>
+                    </div>
+                    <div v-else class="text-center py-2">
+                      <div class="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">All Services Operational</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: System -->
+            <div v-if="currentTab === 'system'" class="space-y-6">
+              <div class="section-header">
+                <h2 class="section-title">System</h2>
+                <p class="section-desc">Host integration and application environment settings.</p>
+              </div>
+
+              <div class="space-y-6">
+                <div class="card flex items-center justify-between" v-if="electron">
+                  <div>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">Autostart at Login</h3>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-tight">Launch LocalShare when you start your computer</p>
+                  </div>
+                  <button @click="toggleAutoLaunch" :class="['switch', desktopSettings.autoLaunch ? 'switch-on' : 'switch-off']">
+                    <span :class="['switch-dot', desktopSettings.autoLaunch ? 'translate-x-6' : 'translate-x-1']"></span>
+                  </button>
+                </div>
+                <div class="card">
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-2">About LocalShare</h3>
+                  <div class="space-y-2">
+                    <div class="flex justify-between text-xs py-2">
+                      <span class="text-slate-500">Version</span>
+                      <span class="font-bold text-brand-600 dark:text-brand-400">1.0.6 (Stable)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </transition>
+      </div>
+
+      <!-- Status Bar -->
+      <footer class="h-8 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between px-6 shrink-0 z-10">
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-1.5 text-[9px] font-bold">
+            <span :class="['w-1.5 h-1.5 rounded-full', status.sharingActive ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-400']"></span>
+            <span :class="status.sharingActive ? 'text-emerald-600 dark:text-emerald-500' : 'text-slate-500'">{{ status.sharingActive ? 'SERVER RUNNING' : 'SERVER STOPPED' }}</span>
+          </div>
+          <div v-if="status.lanAddresses && status.lanAddresses.length" class="text-[9px] font-bold text-slate-400 border-l border-slate-200 dark:border-slate-800 pl-4 uppercase tracking-tighter">
+            PORT: {{ status.port }} | IP: {{ status.lanAddresses[0] }}
+          </div>
+        </div>
+        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+          LocalShare Console
+        </div>
+      </footer>
+    </main>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <transition-group name="toast" tag="div" class="fixed bottom-12 right-8 z-[100] flex flex-col gap-3 pointer-events-none">
+       <div v-for="toast in toasts" :key="toast.id" 
+            :class="['pointer-events-auto px-6 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 backdrop-blur-md min-w-[280px]', 
+                    toast.type === 'success' ? 'bg-emerald-500/90 text-white border-emerald-400' : 'bg-red-500/90 text-white border-red-400']">
+         <svg v-if="toast.type === 'success'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+         <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+         <span class="text-sm font-bold tracking-tight">{{ toast.message }}</span>
+       </div>
+    </transition-group>
+  </div>
+
+  <script src="/js/admin.js"></script>
+</body>
+
+</html>
