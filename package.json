@@ -25,7 +25,7 @@
     "lan",
     "electron"
   ],
-  "author": "LocalShare Team",
+  "author": "Bhargav Prajapati <bhargavprajapati949@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "@types/multer": "^2.1.0",
