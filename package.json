@@ -68,19 +68,38 @@
     ],
     "mac": {
       "icon": "public/icons/mac/icon.icns",
+      "artifactName": "${productName}-mac-${arch}.${ext}",
       "category": "public.app-category.utilities",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ]
     },
     "win": {
       "icon": "public/icons/win/icon.ico",
+      "artifactName": "${productName}.${ext}",
       "target": "nsis"
     },
     "linux": {
       "icon": "public/icons/png/512x512.png",
-      "target": "AppImage",
+      "artifactName": "${productName}-linux-${arch}.${ext}",
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
       "category": "Utility"
     }
   }

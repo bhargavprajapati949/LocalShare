@@ -1,19 +1,21 @@
 #!/bin/bash
 
-echo "⬇️ Downloading LocalShare..."
+echo "⬇️ Downloading LocalShare for Linux..."
 
-DOWNLOAD_URL="https://github.com/bhargavprajapati949/LocalShare/releases/latest/download/localshare-linux-x64"
+FILE_NAME="LocalShare-linux-x64.AppImage"
+DOWNLOAD_URL="https://github.com/bhargavprajapati949/LocalShare/releases/latest/download/$FILE_NAME"
 
 # Download to current directory
-curl -L -o ./localshare "$DOWNLOAD_URL"
+echo "📥 Fetching $FILE_NAME..."
+curl -L -o ./LocalShare.AppImage "$DOWNLOAD_URL"
 
 # Make it executable
-chmod +x ./localshare
+chmod +x ./LocalShare.AppImage
 
 echo ""
-echo "✅ LocalShare is now in your current directory!"
+echo "✅ LocalShare (AppImage) is now in your current directory!"
 echo "🚀 Starting LocalShare..."
 echo ""
 
 # Run it
-./localshare
+./LocalShare.AppImage
