@@ -82,11 +82,11 @@ jobs:
         with:
           name: installers-${{ matrix.os }}
           path: |
-            release-electron/*.exe
-            release-electron/*.dmg
-            release-electron/*.AppImage
-            release-electron/*.deb
-            release-electron/*.zip
+            release/*.exe
+            release/*.dmg
+            release/*.AppImage
+            release/*.deb
+            release/*.zip
 
   publish:
     name: Create GitHub Release
@@ -96,7 +96,7 @@ jobs:
       - name: Download all installers
         uses: actions/download-artifact@v4
         with:
-          path: release-electron
+          path: release
           merge-multiple: true 
 
       - name: Create GitHub Release
@@ -107,4 +107,4 @@ jobs:
           target_commitish: ${{ needs.prepare.outputs.sha }}
           make_latest: true
           generate_release_notes: true
-          files: release-electron/*
+          files: release/*

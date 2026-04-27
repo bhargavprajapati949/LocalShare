@@ -154,4 +154,51 @@ export class FileServer {
   public getSessionState() {
     return this.sessionState;
   }
+
+  public getConfig() {
+    return this.config;
+  }
+
+  public getDiscoveryHealth() {
+    const lanAddresses = getLanIPv4Candidates();
+    const configuredDomainName = (this.sessionState.getDomainName() || this.config.customDomainName || '').trim().toLowerCase();
+    const domainName = configuredDomainName || getDefaultMdnsDomainName();
+    const lanUrls = lanAddresses.map((ip) => `http://${ip}:${this.config.port}`);
+    const domainUrl = domainName ? `http://${domainName}:${this.config.port}` : undefined;
+    const warnings: string[] = [];
+
+    if (!(this.config.host === '0.0.0.0' || this.config.host === '::')) {
+      warnings.push(`Server bind host is ${this.config.host}. Use HOST=0.0.0.0 for LAN access.`);
+    }
+    if (!lanAddresses.length) {
+      warnings.push('No LAN IPv4 interface detected. Connect to Wi-Fi/hotspot and retry.');
+    }
+    if (!this.sessionState.isSharingActive()) {
+      warnings.push('Sharing is currently stopped. Start sharing before testing from other devices.');
+    }
+    if (!this.config.mdnsEnabled) {
+      warnings.push('mDNS is disabled (MDNS_ENABLED=0). Domain-based access will not work.');
+    }
+    if (domainName && ['test.local', 'host.local', 'server.local', 'my-files.local'].includes(domainName)) {
+      warnings.push('Domain name is generic and may collide on LAN. Use a unique name like yourname-files.local.');
+    }
+
+    warnings.push('Many mobile browsers, especially on Android, do not reliably resolve .local mDNS hostnames. Use the LAN IP URL or QR code on phones if the domain URL fails.');
+    warnings.push('If IP URL works but domain URL does not, the network likely blocks multicast DNS or the client OS/browser does not support .local resolution.');
+    warnings.push('If nothing works from other devices, check host OS firewall and hotspot/client-isolation settings.');
+
+    return {
+      host: this.config.host,
+      port: this.config.port,
+      sharingActive: this.sessionState.isSharingActive(),
+      mdnsEnabled: this.config.mdnsEnabled,
+      configuredDomainName: configuredDomainName || undefined,
+      domainName,
+      domainUrl,
+      lanAddresses,
+      lanUrls,
+      recommendedClientUrls: domainUrl ? [...lanUrls, domainUrl] : lanUrls,
+      warnings,
+    };
+  }
 }

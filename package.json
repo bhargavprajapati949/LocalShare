@@ -1,7 +1,8 @@
 {
-  "name": "localshare",
+  "name": "LocalShare",
+  "productName": "LocalShare",
   "version": "1.0.7",
-  "description": "Cross-platform local network HTTP file host prototype",
+  "description": "Seamless, cross-platform local network file sharing",
   "main": "dist/main/index.js",
   "engines": {
     "node": ">=24.0.0"
@@ -9,18 +10,21 @@
   "bin": "dist/server/server.js",
   "scripts": {
     "dev": "tsx watch src/server/server.ts",
-    "build": "tsc -p tsconfig.json && mkdir -p dist/renderer && cp -r src/renderer/* dist/renderer/",
+    "build": "tsc -p tsconfig.json && mkdir -p dist/renderer && cp -r src/renderer/* dist/renderer/ && cp public/favicon.svg dist/renderer/ && cp public/icon.png dist/renderer/ && mkdir -p dist/icons && cp -r public/icons/* dist/icons/",
     "start": "node dist/server/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --import tsx src/server/*.test.ts",
     "test:coverage": "node --test --experimental-test-coverage --import tsx src/server/*.test.ts",
     "electron:dev": "npm run build && electron .",
-    "electron:build": "npm run build && electron-builder",
-    "package:clean": "rm -rf release",
-    "package:host": "npm run build && node scripts/package-host.mjs"
+    "electron:build": "npm run build && electron-builder -mwl"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "file-sharing",
+    "local-network",
+    "lan",
+    "electron"
+  ],
+  "author": "LocalShare Team",
   "license": "ISC",
   "dependencies": {
     "@types/multer": "^2.1.0",
@@ -43,6 +47,7 @@
     "@types/supertest": "^7.2.0",
     "autoprefixer": "^10.5.0",
     "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
     "postcss": "^8.5.10",
     "supertest": "^7.2.2",
     "tailwindcss": "^4.2.4",
@@ -54,20 +59,26 @@
     "productName": "LocalShare",
     "copyright": "Copyright © 2026",
     "directories": {
-      "output": "release-electron"
+      "output": "release"
     },
     "files": [
       "dist/**/*",
       "package.json"
     ],
     "mac": {
+      "icon": "public/icons/mac/icon.icns",
       "category": "public.app-category.utilities",
-      "target": "dmg"
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
+      "icon": "public/icons/win/icon.ico",
       "target": "nsis"
     },
     "linux": {
+      "icon": "public/icons/png/512x512.png",
       "target": "AppImage",
       "category": "Utility"
     }
