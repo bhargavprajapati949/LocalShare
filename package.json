@@ -10,7 +10,7 @@
   "bin": "dist/server/server.js",
   "scripts": {
     "dev": "tsx watch src/server/server.ts",
-    "build": "tsc -p tsconfig.json && mkdir -p dist/renderer && cp -r src/renderer/* dist/renderer/ && cp public/favicon.svg dist/renderer/ && cp public/icon.png dist/renderer/ && mkdir -p dist/icons && cp -r public/icons/* dist/icons/",
+    "build": "node scripts/build.mjs",
     "start": "node dist/server/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --import tsx src/server/*.test.ts",
