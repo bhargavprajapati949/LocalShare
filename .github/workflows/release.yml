@@ -2,6 +2,16 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Type of version bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
@@ -25,10 +35,10 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      - name: Bump patch version
+      - name: Bump version
         id: version
         run: |
-          NEW_VERSION=$(npm version patch --no-git-tag-version)
+          NEW_VERSION=$(npm version ${{ inputs.bump_type }} --no-git-tag-version)
           echo "tag=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Bumped to ${NEW_VERSION}"
 
