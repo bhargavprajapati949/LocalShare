@@ -3,20 +3,31 @@
   "extends": [
     "config:recommended"
   ],
+  "gitAuthor": "Renovate Bot <bot@yourdomain.com>",
   "dependencyDashboard": true,
   "rangeStrategy": "pin",
   "timezone": "UTC",
-  "schedule": ["every weekend"],
+  "schedule": [
+    "* 3 1 * *"
+  ],
   "packageRules": [
     {
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "groupName": "All non-major dependencies",
       "automerge": true,
       "automergeType": "branch",
       "platformAutomerge": true
     },
     {
-      "matchPackageNames": ["node", "@types/node"],
+      "matchPackageNames": [
+        "node",
+        "@types/node"
+      ],
       "allowedVersions": "^20.0.0"
     }
   ]
